@@ -57,7 +57,7 @@ REGISTERS = {
     "elf32-i386": ["eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip"],
     "elf64-x86-64": ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
          "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"],
-    "elf64-littleaarch64": ["x1","x2","x3","x4","x5","x6","x7","x8","x9","x10","x11","x12",
+    "elf64-littleaarch64": ["x0","x1","x2","x3","x4","x5","x6","x7","x8","x9","x10","x11","x12",
          "x13","x14","x15","x16","x17","x18","x19","x20","x21","x22","x23","x24","x25","x26",
          "x27","x28","x29","x30","sp","pc"]
 }
@@ -1021,6 +1021,45 @@ class PEDA(object):
 
         return args
 
+    def _get_function_args_aarch64(self, code, argc=None):
+        """
+        Guess the number of arguments passed to a function - aarch64
+        """
+
+        # just retrieve max 6 args
+        arg_order = ["x0", "x1", "x2", "x3", "x4", "x5"]
+        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
+        matches = p.findall(code)
+        regs = [r for (_, r) in matches]
+        p = re.compile("(x[0-5])")
+        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
+        m = p.findall(" ".join(regs))
+        m = list(set(m)) # uniqify
+        argc = 0
+        if "x1" in m and "x0" not in m: # dirty fix
+            argc += 1
+        argc += m.count("x0")
+        if argc > 0:
+            argc += m.count("x1")
+        if argc > 1:
+            argc += m.count("x2")
+        if argc > 2:
+            argc += m.count("x3")
+        if argc > 3:
+            argc += m.count("x4")
+        if argc > 4:
+            argc += m.count("x5")
+
+        if argc == 0:
+            return []
+
+        args = []
+        regs = self.getregs()
+        for i in range(argc):
+            args += [regs[arg_order[i]]]
+
+        return args
+    
     def get_function_args(self, argc=None):
         """
         Get the guessed arguments passed to a function when stopped at a call instruction
@@ -1044,16 +1083,23 @@ class PEDA(object):
         code = ""
         if not prev_insts:
             return []
-
-        for (addr, inst) in prev_insts[::-1]:
-            if "call" in inst.strip().split()[0]:
-                break
-            code = "0x%x:%s\n" % (addr, inst) + code
+        if "aarch64" in arch :
+            for (addr, inst) in prev_insts[::-1]:
+                if "bl" in inst.strip().split()[0]:
+                    break
+                code = "0x%x:%s\n" % (addr, inst) + code
+        else :
+            for (addr, inst) in prev_insts[::-1]:
+                if "call" in inst.strip().split()[0]:
+                    break
+                code = "0x%x:%s\n" % (addr, inst) + code
 
         if "i386" in arch:
             args = self._get_function_args_32(code, argc)
         if "64" in arch:
             args = self._get_function_args_64(code, argc)
+        if "aarch64" in arch:
+            args = self._get_function_args_aarch64(code, argc)
 
         return args
 
@@ -4299,6 +4345,10 @@ class PEDACmd(object):
                 msg(format_disasm_code(text, pc))
                 self.dumpargs()
             # stopped at jump
+            elif "bl" in opcode :
+                text += peda.disassemble_around(pc, count)
+                msg(format_disasm_code(text, pc))
+                self.dumpargs() 
             elif "j" in opcode:
                 jumpto = peda.testjump(inst)
                 if jumpto: # JUMP is taken
