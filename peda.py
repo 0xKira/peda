@@ -54,9 +54,12 @@ else:
 REGISTERS = {
     8 : ["al", "ah", "bl", "bh", "cl", "ch", "dl", "dh"],
     16: ["ax", "bx", "cx", "dx"],
-    32: ["eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip"],
-    64: ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
-         "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"]
+    "elf32-i386": ["eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip"],
+    "elf64-x86-64": ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
+         "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"],
+    "elf64-littleaarch64": ["x1","x2","x3","x4","x5","x6","x7","x8","x9","x10","x11","x12",
+         "x13","x14","x15","x16","x17","x18","x19","x20","x21","x22","x23","x24","x25","x26",
+         "x27","x28","x29","x30","sp","pc"]
 }
 
 ###########################################################################
@@ -4821,7 +4824,7 @@ class PEDACmd(object):
             # Register
             regs = peda.getregs(" ".join(arg[1:]))
             if regname is None:
-                for r in REGISTERS[bits]:
+                for r in REGISTERS[arch]:
                     if r in regs:
                         text += get_reg_text(r, regs[r])
                         # text += green("%s" % r.upper().ljust(3)) + ": "
@@ -4837,8 +4840,14 @@ class PEDACmd(object):
                     # text += "\n"
             if text:
                 msg(text.strip())
-            if regname is None or "eflags" in regname:
-                self.eflags()
+            if "x86-64" in arch or "i386" in arch :
+                print(arch)
+                intel = True
+            else :
+                intel = False
+            if intel : 
+                if regname is None or "eflags" in regname:
+                    self.eflags()
             return
 
         elif to_int(address) is None:
