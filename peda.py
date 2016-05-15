@@ -1124,6 +1124,45 @@ class PEDA(object):
 
         return args
     
+    def _get_function_args_ppc(self, code, argc=None):
+        """
+        Guess the number of arguments passed to a function - aarch64
+        """
+
+        # just retrieve max 6 args
+        arg_order = ["r3", "r4", "r5", "r6", "r7", "r8"]
+        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
+        matches = p.findall(code)
+        regs = [r for (_, r) in matches]
+        p = re.compile("(r[0-5])")
+        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
+        m = p.findall(" ".join(regs))
+        m = list(set(m)) # uniqify
+        argc = 0
+        if "r4" in m and "r3" not in m: # dirty fix
+            argc += 1
+        argc += m.count("r3")
+        if argc > 0:
+            argc += m.count("r4")
+        if argc > 1:
+            argc += m.count("r5")
+        if argc > 2:
+            argc += m.count("r6")
+        if argc > 3:
+            argc += m.count("r7")
+        if argc > 4:
+            argc += m.count("r8")
+
+        if argc == 0:
+            return []
+
+        args = []
+        regs = self.getregs()
+        for i in range(argc):
+            args += [regs[arg_order[i]]]
+
+        return args
+
     def get_function_args(self, argc=None):
         """
         Get the guessed arguments passed to a function when stopped at a call instruction
@@ -1158,14 +1197,16 @@ class PEDA(object):
                     break
                 code = "0x%x:%s\n" % (addr, inst) + code
 
+        if "aarch64" in arch:
+            args = self._get_function_args_aarch64(code, argc)
         if "i386" in arch:
             args = self._get_function_args_32(code, argc)
         if "64" in arch:
             args = self._get_function_args_64(code, argc)
-        if "aarch64" in arch:
-            args = self._get_function_args_aarch64(code, argc)
         if "arm" in arch:
             args = self._get_function_args_arm(code, argc)
+        if "powerpc" in arch :
+            args = self._get_function_args_ppc(code, argc)
 
         return args
 
@@ -4543,9 +4584,11 @@ class PEDACmd(object):
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
                 else :
                     pass
-            elif "mips" in arch :
+            elif "powerpc" in arch :
                 text += peda.disassemble_around(pc, count)
                 msg(format_disasm_code(text, pc))
+                if "bl" in opcode :
+                    self.dumpargs()
             else :
                 if "call" in opcode:
                     text += peda.disassemble_around(pc, count)
