@@ -4657,7 +4657,7 @@ class PEDACmd(object):
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
-                elif "b." in opcode and "aarch64" in arch:
+                elif ("b." in opcode or "b" == opcode)  and "aarch64" in arch:
                     text = ""
                     jumpto = peda.aarch64_testjump(inst)
                     if jumpto : #jump is token
