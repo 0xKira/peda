@@ -63,6 +63,8 @@ REGISTERS = {
          "x27","x28","x29","x30","sp","pc"]
 }
 
+armplt = {}
+
 ###########################################################################
 class PEDA(object):
     """
@@ -2428,8 +2430,10 @@ class PEDA(object):
         
         (arch,bits) = self.getarch()
         if "arm" in arch :
-            self.armplt = _getplt()
-            return self.armplt
+            global armplt
+            if len(armplt) == 0 :
+                armplt = _getplt()
+            return armplt
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
