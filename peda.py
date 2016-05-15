@@ -792,6 +792,13 @@ class PEDA(object):
             return None
         else:
             code = out
+        (arch,bits) = self.getarch()
+        if "arm" in arch :
+            if len(armplt) == 0 :
+                peda.elfsymbols()
+            for (k,v) in armplt.items():
+                if hex(v) in code :
+                    code = code.replace(hex(v),hex(v) + " <" + k + ">")
 
         return code
 
@@ -4436,20 +4443,25 @@ class PEDACmd(object):
             opcode = inst.split(":\t")[-1].split()[0]
             # stopped at function call
             if "aarch64" in arch or "arm" in arch:
-                if "bl" in opcode  :
-                    text += peda.disassemble_around(pc, count)
+                text += peda.disassemble_around(pc, count)
+                if "arm" in arch :
+                    if len(armplt) == 0 :
+                        peda.elfsymbols()
+                    for (k,v) in armplt.items():
+                        if hex(v) in text :
+                            text = text.replace(hex(v),hex(v) + " <" + k + ">")
                     msg(format_disasm_code(text, pc))
+                else :
+                    msg(format_disasm_code(text, pc))
+                if "bl" in opcode  :
                     self.dumpargs()
                 elif len(m) > 0:
-                    text += peda.disassemble_around(pc, count)
-                    msg(format_disasm_code(text, pc))
                     exp = (m[0][1:-1]).replace(",","+").replace("#","")
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
                 else :
-                    text += peda.disassemble_around(pc, count)
-                    msg(format_disasm_code(text, pc))
+                    pass
             else :
                 if "call" in opcode:
                     text += peda.disassemble_around(pc, count)
