@@ -1551,6 +1551,64 @@ class PEDA(object):
 
         return None
 
+    def aarch64_testjump(self, inst=None):
+        """
+        Test if jump instruction is taken or not
+
+        Returns:
+            - (status, address of target jumped instruction)
+        """
+
+        flags = self.get_aarch64_cpsr()
+        if not flags:
+            return None
+
+        if not inst:
+            pc = self.getreg("pc")
+            inst = self.execute_redirect("x/i 0x%x" % pc)
+            if not inst:
+                return None
+
+        opcode = inst.split(":\t")[-1].split()[0]
+        next_addr = self.eval_target(inst)
+        if next_addr is None:
+            next_addr = 0
+
+        if opcode == "bl":
+            return next_addr
+        if opcode == "b" :
+            return next_addr    
+        if opcode == "b.eq" and flags["Z"]:
+            return next_addr
+        if opcode == "b.ne" and not flags["Z"]:
+            return next_addr
+        if opcode == "b.cs" and flags["C"]:
+            return next_addr
+        if opcode == "b.cc" and not flags["C"]:
+            return next_addr
+        if opcode == "b.mi" and flags["N"]:
+            return next_addr
+        if opcode == "b.pl" and not flags["N"]:
+            return next_addr
+        if opcode == "b.vs" and flags["O"]:
+            return next_addr
+        if opcode == "b.vc" and not flags["O"]:
+            return next_addr
+        if opcode == "b.hi" and not flags["Z"] and flags["C"]:
+            return next_addr
+        if opcode == "b.ls" and not flags["C"] and flags["Z"]:
+            return next_addr
+        if opcode == "b.ge" and (flags["N"] == flags["V"]):
+            return next_addr
+        if opcode == "b.lt" and (flags["N"] != flags["V"]):
+            return next_addr
+        if opcode == "b.gt" and not flags["Z"] and (flags["N"] == flags["V"]):
+            return next_addr
+        if opcode == "b.le" and flags["Z"] and (flags["N"] != flags["V"]):
+            return next_addr
+
+        return None
+
     def take_snapshot(self):
         """
         Take a snapshot of current process
@@ -4587,18 +4645,49 @@ class PEDACmd(object):
                             text = text.replace(hex(v),hex(v) + " <" + k + ">")
                     msg(format_disasm_code(text, pc))
                 else :
-                    msg(format_disasm_code(text, pc))
+                    pass
                 if "bl" in opcode  :
+                    msg(format_disasm_code(text, pc))
                     self.dumpargs()
                 elif len(m) > 0:
+                    msg(format_disasm_code(text, pc))
                     exp = (m[0][1:-1]).replace(",","+").replace("#","")
                     if "pc" in exp :
                         exp += "+8"
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
+                elif "b." in opcode and "aarch64" in arch:
+                    text = ""
+                    jumpto = peda.aarch64_testjump(inst)
+                    if jumpto : #jump is token
+                        code = peda.disassemble_around(pc, count)
+                        code = code.splitlines()
+                        pc_idx = 999
+                        for (idx, line) in enumerate(code):
+                            if ("0x%x" % pc) in line.split(":")[0]:
+                                pc_idx = idx
+                            if idx <= pc_idx:
+                                text += line + "\n"
+                            else:
+                                text += " | %s\n" % line.strip()
+                        text = format_disasm_code(text, pc) + "\n"
+                        text += " |->"
+                        code = peda.get_disasm(jumpto, count//2)
+                        if not code:
+                            code = "   Cannot evaluate jump destination\n"
+
+                        code = code.splitlines()
+                        text += red(code[0]) + "\n"
+                        for line in code[1:]:
+                            text += "       %s\n" % line.strip()
+                        text += red("JUMP is taken".rjust(79))
+                    else :
+                        text += format_disasm_code(peda.disassemble_around(pc, count), pc)
+                        text += "\n" + green("jump is not taken".rjust(79))
+                    msg(text.rstrip())
                 else :
-                    pass
+                    msg(format_disasm_code(text, pc))  
             elif "powerpc" in arch :
                 text += peda.disassemble_around(pc, count)
                 msg(format_disasm_code(text, pc))
