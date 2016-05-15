@@ -503,6 +503,7 @@ def format_disasm_code(code, nearby=None):
         "call": "green",
         "j": "yellow", # jump
         "ret": "blue",
+        "bl": "green",
     }
     result = ""
 
