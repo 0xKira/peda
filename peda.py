@@ -1292,6 +1292,45 @@ class PEDA(object):
 
         return flags
 
+    def get_cpsr(self):
+        """
+        Get flags value from CPSR register
+
+        Reurns :
+            - dictionary of named flags
+        """
+        CPSR_N = 1 << 0x1f
+        CPSR_Z = 1 << 0x1e
+        CPSR_C = 1 << 0x1d
+        CPSR_V = 1 << 0x1c
+        CPSR_Q = 1 << 0x1b
+        CPSR_J = 1 << 0x18
+        CPSR_GE = 7 << 0x10
+        CPSR_E = 1 << 9
+        CPSR_A = 1 << 8
+        CPSR_I = 1 << 7
+        CPSR_F = 1 << 6
+        CPSR_T = 1 << 5
+        
+        flags = {"T":0,"F":0,"I":0,"A":0,"E":0,"GE":0,"J":0,"Q":0,"V":0,"C":0,"Z":0,"N":0}
+        cpsr = self.getreg("cpsr")
+        if not cpsr :
+            return None
+        flags["T"] = bool(cpsr & CPSR_T)
+        flags["F"] = bool(cpsr & CPSR_F)
+        flags["I"] = bool(cpsr & CPSR_I)
+        flags["A"] = bool(cpsr & CPSR_A)
+        flags["E"] = bool(cpsr & CPSR_E)
+        flags["GE"] = bool(cpsr & CPSR_GE)
+        flags["J"] = bool(cpsr & CPSR_J)
+        flags["Q"] = bool(cpsr & CPSR_Q)
+        flags["V"] = bool(cpsr & CPSR_V)
+        flags["C"] = bool(cpsr & CPSR_C)
+        flags["Z"] = bool(cpsr & CPSR_Z)
+        flags["N"] = bool(cpsr & CPSR_N)
+
+        return flags
+
     def set_eflags(self, flagname, value=True):
         """
         Set/clear value of a flag register
@@ -4457,6 +4496,8 @@ class PEDACmd(object):
                     self.dumpargs()
                 elif len(m) > 0:
                     exp = (m[0][1:-1]).replace(",","+").replace("#","")
+                    if "pc" in exp :
+                        exp += "+8"
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
@@ -4977,6 +5018,36 @@ class PEDACmd(object):
         return
     eflags.options = ["set", "clear"]
 
+    def cpsr(self,*arg):
+        """
+        Display value of cpsr register
+
+        """
+        FLAGS = ["T","F","I","GE","V","C","Z","N"]
+        FLAGS_TEXT = ["Thumb","FIQ","IRQ","GE","Overflow","Carry","Zero","Negative"]
+        (option,flagname) = normalize_argv(arg, 2)
+   
+        if not self._is_running():
+            return
+
+        if option and not flagname:
+            self._missing_argument()
+
+        if option is None: # display eflags
+            flags = peda.get_cpsr()
+            text = ""
+            for (i, f) in enumerate(FLAGS):
+                if flags[f]:
+                    text += "%s " % red(FLAGS_TEXT[i].upper(), "bold")
+                else:
+                    text += "%s " % green(FLAGS_TEXT[i].lower())
+            
+            cpsr = peda.getreg("cpsr")
+            msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
+
+        return
+    cpsr.options = ["set", "clear"]
+
     def xinfo(self, *arg):
         """
         Display detail information of address/registers
@@ -5025,6 +5096,9 @@ class PEDACmd(object):
                 intel = True
             else :
                 intel = False
+                if regname is None or "cpsr" in regname :
+                    if "arm" in arch :
+                        self.cpsr()
             if intel : 
                 if regname is None or "eflags" in regname:
                     self.eflags()
