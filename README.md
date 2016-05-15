@@ -3,6 +3,11 @@ peda
 
 PEDA - Python Exploit Development Assistance for GDB
 
+## Enhancements:
+* Dereference memory trace
+* Basic support for ARMv7 and aarch64
+* Recover armv7 dynamic symbol
+
 ## Key Features:
 * Enhance the display of gdb: colorize and display disassembly codes, registers, memory information during debugging.
 * Add commands to support debugging and exploit development (for a full list of commands use `peda help`):
@@ -29,13 +34,10 @@ PEDA - Python Exploit Development Assistance for GDB
 
 ## Installation
 
-    git clone https://github.com/longld/peda.git ~/peda
+    git clone https://github.com/scwuaptx/peda.git ~/peda
     echo "source ~/peda/peda.py" >> ~/.gdbinit
     echo "DONE! debug your program with gdb and enjoy"
 
 ## Screenshot
-![start](http://i.imgur.com/P1BF5mp.png)
+![ARM64](http://i.imgur.com/EiU5FYD.png)
 
-![pattern arg](http://i.imgur.com/W97OWRC.png)
-
-![patts](http://i.imgur.com/Br24IpC.png)
