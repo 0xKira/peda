@@ -4553,9 +4553,10 @@ class PEDACmd(object):
         else:
             inst = None
         (arch,bits) = peda.getarch()
-
-        m = re.compile(r"\[.*\]")
-        m = m.findall(inst)
+        
+        if inst :
+            m = re.compile(r"\[.*\]")
+            m = m.findall(inst)
         text = blue("[%s]" % "code".center(78, "-"))
         msg(text)
         if inst: # valid $PC
