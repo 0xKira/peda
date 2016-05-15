@@ -1364,7 +1364,7 @@ class PEDA(object):
         
         flags = {"T":0,"F":0,"I":0,"A":0,"E":0,"GE":0,"J":0,"Q":0,"V":0,"C":0,"Z":0,"N":0}
         cpsr = self.getreg("cpsr")
-        if not cpsr :
+        if cpsr is None :
             return None
         flags["T"] = bool(cpsr & CPSR_T)
         flags["F"] = bool(cpsr & CPSR_F)
@@ -1399,7 +1399,7 @@ class PEDA(object):
         
         flags = {"F":0,"I":0,"A":0,"D":0,"V":0,"C":0,"Z":0,"N":0}
         cpsr = self.getreg("cpsr")
-        if not cpsr :
+        if cpsr is None :
             return None
         flags["F"] = bool(cpsr & CPSR_F)
         flags["I"] = bool(cpsr & CPSR_I)
