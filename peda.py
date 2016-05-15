@@ -1331,6 +1331,37 @@ class PEDA(object):
 
         return flags
 
+    def get_aarch64_cpsr(self):
+        """
+        Get flags value from CPSR register
+
+        Reurns :
+            - dictionary of named flags
+        """
+        CPSR_N = 1 << 0x1f
+        CPSR_Z = 1 << 0x1e
+        CPSR_C = 1 << 0x1d
+        CPSR_V = 1 << 0x1c 
+        CPSR_D = 1 << 9
+        CPSR_A = 1 << 8
+        CPSR_I = 1 << 7
+        CPSR_F = 1 << 6
+        
+        flags = {"F":0,"I":0,"A":0,"D":0,"V":0,"C":0,"Z":0,"N":0}
+        cpsr = self.getreg("cpsr")
+        if not cpsr :
+            return None
+        flags["F"] = bool(cpsr & CPSR_F)
+        flags["I"] = bool(cpsr & CPSR_I)
+        flags["A"] = bool(cpsr & CPSR_A)
+        flags["D"] = bool(cpsr & CPSR_D)
+        flags["V"] = bool(cpsr & CPSR_V)
+        flags["C"] = bool(cpsr & CPSR_C)
+        flags["Z"] = bool(cpsr & CPSR_Z)
+        flags["N"] = bool(cpsr & CPSR_N)
+
+        return flags
+
     def set_eflags(self, flagname, value=True):
         """
         Set/clear value of a flag register
@@ -5047,6 +5078,36 @@ class PEDACmd(object):
 
         return
     cpsr.options = ["set", "clear"]
+    
+    def aarch64_cpsr(self,*arg):
+        """
+        Display value of cpsr register
+
+        """
+        FLAGS = ["F","I","A","D","V","C","Z","N"]
+        FLAGS_TEXT = ["FIQ","IRQ","SError","Debug","Overflow","Carry","Zero","Negative"]
+        (option,flagname) = normalize_argv(arg, 2)
+   
+        if not self._is_running():
+            return
+
+        if option and not flagname:
+            self._missing_argument()
+
+        if option is None: # display eflags
+            flags = peda.get_aarch64_cpsr()
+            text = ""
+            for (i, f) in enumerate(FLAGS):
+                if flags[f]:
+                    text += "%s " % red(FLAGS_TEXT[i].upper(), "bold")
+                else:
+                    text += "%s " % green(FLAGS_TEXT[i].lower())
+            
+            cpsr = peda.getreg("cpsr")
+            msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
+
+        return
+    cpsr.options = ["set", "clear"]
 
     def xinfo(self, *arg):
         """
@@ -5099,6 +5160,10 @@ class PEDACmd(object):
                 if regname is None or "cpsr" in regname :
                     if "arm" in arch :
                         self.cpsr()
+                    elif "aarch64" in arch :
+                        self.aarch64_cpsr()
+                    else:
+                        pass
             if intel : 
                 if regname is None or "eflags" in regname:
                     self.eflags()
