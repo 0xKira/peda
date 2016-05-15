@@ -6,6 +6,7 @@ PEDA - Python Exploit Development Assistance for GDB
 ## Enhancements:
 * Dereference memory trace
 * Basic support for ARMv7 and aarch64
+* Simple support for ppc and mipsel
 * Recover armv7 dynamic symbol
 
 ## Key Features:
