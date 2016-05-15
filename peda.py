@@ -2387,9 +2387,49 @@ class PEDA(object):
         Returns:
             - dictionary of (address(Int), symname(String))
         """
+        def _getgotplt():
+            gotplt = []
+            procname = self.getfile()
+            result = subprocess.check_output("objdump -R " + procname +
+                "|grep R_ARM_JUMP_SLOT",shell=True )
+            result = result.decode('utf8')
+            for element in result.split('\n')[:-1]:
+                gotplt.append(element.split()[2] + "@plt")
+            return gotplt
+
+        def _getplt():
+            binmap = self.get_vmmap("binary")
+            elfbase = binmap[0][0] if binmap else 0
+            plt = {}
+            temp = []
+            got_plt = ["plt0"] + _getgotplt()
+            procname = self.getfile()
+            result = subprocess.check_output("objdump -d -j .plt " + procname +
+                "| grep -A 31337 .plt\>",shell=True).decode('utf8')
+            pltentry = result.split('\n')[1:]
+
+            temp.append(int(pltentry[0].split(":")[0].strip(),16))
+            pltentry = pltentry[5:]
+            for i in range(int(len(pltentry)/3)):
+                temp.append(int(pltentry[i*3].split(":")[0].strip(),16) )
+            symbols = dict(zip(got_plt,temp))
+            for (k,v) in symbols.items():
+                if v < elfbase :
+                    symbols[k] = v + elfbase
+            return symbols
+  
+
+
+
         headers = self.elfheader()
         if ".plt" not in headers: # static binary
             return {}
+        
+        
+        (arch,bits) = self.getarch()
+        if "arm" in arch :
+            self.armplt = _getplt()
+            return self.armplt
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
