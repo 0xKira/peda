@@ -150,6 +150,8 @@ class PEDA(object):
         (arch,bits) = peda.getarch()
         if "aarch64" in arch :
             regs = REGISTERS["elf64-littleaarch64"]
+        elif "arm" in arch :
+            regs = REGISTERS["elf32-littlearm"]
         else :
             regs = REGISTERS["elf64-x86-64"] + REGISTERS["elf32-i386"] + REGISTERS[16] + REGISTERS[8]
         for r in regs:
@@ -4393,7 +4395,14 @@ class PEDACmd(object):
                 if "bl" in opcode  :
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
-                    self.dumpargs() 
+                    self.dumpargs()
+                elif len(m) > 0:
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    exp = (m[0][1:-1]).replace(",","+").replace("#","")
+                    val = peda.parse_and_eval(exp)
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (m[0],format_reference_chain(chain)))
                 else :
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
