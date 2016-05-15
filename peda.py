@@ -1095,7 +1095,7 @@ class PEDA(object):
         p = re.compile(":\s*([^\s]*)\s*([^,]*)")
         matches = p.findall(code)
         regs = [r for (_, r) in matches]
-        p = re.compile("(x[0-5])")
+        p = re.compile("(x[0-5]|w[0-5])")
         #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
         m = p.findall(" ".join(regs))
         m = list(set(m)) # uniqify
@@ -1104,16 +1104,30 @@ class PEDA(object):
             argc += 1
         argc += m.count("x0")
         if argc > 0:
-            argc += m.count("x1")
+            if m.count("x1") != 0 :
+                argc += m.count("x1")
+            else :
+                argc += m.count("w1")
         if argc > 1:
-            argc += m.count("x2")
+            if m.count("x2") != 0 :  
+                argc += m.count("x2")
+            else :
+                argc += m.count("w2")
         if argc > 2:
-            argc += m.count("x3")
+            if m.count("x3") != 0 :
+                argc += m.count("x3")
+            else :
+                argc += m.count("w3")
         if argc > 3:
-            argc += m.count("x4")
+            if m.count("x4") != 0 :
+                argc += m.count("x4")
+            else :
+                argc += m.count("w4")
         if argc > 4:
-            argc += m.count("x5")
-
+            if m.count("x5") != 0 :
+                argc += m.count("x5")
+            else :
+                argc += m.count("w5")
         if argc == 0:
             return []
 
