@@ -1199,13 +1199,13 @@ class PEDA(object):
 
         if "aarch64" in arch:
             args = self._get_function_args_aarch64(code, argc)
-        if "i386" in arch:
+        elif "i386" in arch:
             args = self._get_function_args_32(code, argc)
-        if "64" in arch:
+        elif "64" in arch:
             args = self._get_function_args_64(code, argc)
-        if "arm" in arch:
+        elif "arm" in arch:
             args = self._get_function_args_arm(code, argc)
-        if "powerpc" in arch :
+        elif "powerpc" in arch :
             args = self._get_function_args_ppc(code, argc)
 
         return args
