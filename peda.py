@@ -57,6 +57,7 @@ REGISTERS = {
     "elf32-i386": ["eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip"],
     "elf64-x86-64": ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
          "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"],
+    "elf32-littlearm":["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","sp","lr","pc"],
     "elf64-littleaarch64": ["x0","x1","x2","x3","x4","x5","x6","x7","x8","x9","x10","x11","x12",
          "x13","x14","x15","x16","x17","x18","x19","x20","x21","x22","x23","x24","x25","x26",
          "x27","x28","x29","x30","sp","pc"]
@@ -1025,6 +1026,45 @@ class PEDA(object):
 
         return args
 
+    def _get_function_args_arm(self, code, argc=None):
+        """
+        Guess the number of arguments passed to a function - aarch64
+        """
+
+        # just retrieve max 6 args
+        arg_order = ["r0", "r1", "r2", "r3", "r4", "r5"]
+        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
+        matches = p.findall(code)
+        regs = [r for (_, r) in matches]
+        p = re.compile("(r[0-5])")
+        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
+        m = p.findall(" ".join(regs))
+        m = list(set(m)) # uniqify
+        argc = 0
+        if "r1" in m and "r0" not in m: # dirty fix
+            argc += 1
+        argc += m.count("r0")
+        if argc > 0:
+            argc += m.count("r1")
+        if argc > 1:
+            argc += m.count("r2")
+        if argc > 2:
+            argc += m.count("r3")
+        if argc > 3:
+            argc += m.count("r4")
+        if argc > 4:
+            argc += m.count("r5")
+
+        if argc == 0:
+            return []
+
+        args = []
+        regs = self.getregs()
+        for i in range(argc):
+            args += [regs[arg_order[i]]]
+
+        return args
+
     def _get_function_args_aarch64(self, code, argc=None):
         """
         Guess the number of arguments passed to a function - aarch64
@@ -1104,6 +1144,8 @@ class PEDA(object):
             args = self._get_function_args_64(code, argc)
         if "aarch64" in arch:
             args = self._get_function_args_aarch64(code, argc)
+        if "arm" in arch:
+            args = self._get_function_args_arm(code, argc)
 
         return args
 
@@ -4347,8 +4389,8 @@ class PEDACmd(object):
             text = ""
             opcode = inst.split(":\t")[-1].split()[0]
             # stopped at function call
-            if "aarch64" in arch :
-                if "bl" in opcode :
+            if "aarch64" in arch or "arm" in arch:
+                if "bl" in opcode  :
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
                     self.dumpargs() 
