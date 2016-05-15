@@ -58,6 +58,8 @@ REGISTERS = {
     "elf64-x86-64": ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
          "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"],
     "elf32-littlearm":["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","sp","lr","pc"],
+    "elf32-tradlittlemips":["a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
+         "s0","s1","s2","s3","s4","s6","s6","s7","gp","sp","s8","ra","pc"],
     "elf64-littleaarch64": ["x0","x1","x2","x3","x4","x5","x6","x7","x8","x9","x10","x11","x12",
          "x13","x14","x15","x16","x17","x18","x19","x20","x21","x22","x23","x24","x25","x26",
          "x27","x28","x29","x30","sp","pc"]
@@ -514,11 +516,19 @@ class PEDA(object):
             return None
 
         result = {}
+        (arch,bits) = self.getarch()
         if regs:
-            for r in regs.splitlines():
-                r = r.split()
-                if len(r) > 1 and to_int(r[1]) is not None:
-                    result[r[0]] = to_int(r[1])
+            if "mips" in arch :
+                tmp = regs.splitlines()
+                klist = tmp[0].split() + tmp[2].split() + tmp[4].split() + tmp[6].split() + tmp[8].split() + tmp[10].split()
+                vlist = tmp[1].split()[1:] + tmp[3].split()[1:] + tmp[5].split()[1:] + tmp[7].split()[1:] + tmp[9].split() + tmp[11].split()
+                vlist = [ to_int("0x"+v) for v in vlist]
+                result = dict(zip(klist,vlist))
+            else :
+                for r in regs.splitlines():
+                    r = r.split()
+                    if len(r) > 1 and to_int(r[1]) is not None:
+                        result[r[0]] = to_int(r[1])
 
         return result
 
@@ -4534,6 +4544,9 @@ class PEDACmd(object):
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
                 else :
                     pass
+            elif "mips" in arch :
+                text += peda.disassemble_around(pc, count)
+                msg(format_disasm_code(text, pc))
             else :
                 if "call" in opcode:
                     text += peda.disassemble_around(pc, count)
