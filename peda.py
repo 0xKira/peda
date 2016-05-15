@@ -4415,7 +4415,12 @@ class PEDACmd(object):
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
                     exp = m[0][1:-1]
-                    val = peda.parse_and_eval(exp)
+                    if "rip" in exp :
+                        nextins = peda.next_inst(pc)
+                        nextaddr = nextins[0][0]
+                        inssize = nextaddr - pc
+                        exp += "+" + str(inssize)
+                    val = peda.parse_and_eval(exp).split()[0]
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
             # stopped at jump
