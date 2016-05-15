@@ -61,7 +61,7 @@ REGISTERS = {
     "elf32-tradlittlemips":["a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
          "s0","s1","s2","s3","s4","s6","s6","s7","gp","sp","s8","ra","pc"],
     "elf32-powerpc":list(map(lambda x: "r%i" % x, range(32))) + ["pc","lr"], 
-    "elf64-littleaarch64": list(map(lambda x: "r%i" % x, range(31))) +  ["sp","pc"]
+    "elf64-littleaarch64": list(map(lambda x: "x%i" % x, range(31))) +  ["sp","pc"]
 }
 
 armplt = {}
