@@ -537,7 +537,8 @@ def format_disasm_code(code, nearby=None):
                     break
 
             prefix = line.split(":\t")[0]
-            addr = re.search("(0x[^\s]*)", prefix)
+            #addr = re.search("(0x[^\s]*)", prefix)
+            addr = re.search("\s*(0x[0-9a-fA-F]+)", prefix)
             if addr:
                 addr = to_int(addr.group(1))
             else:
