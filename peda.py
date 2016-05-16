@@ -4699,7 +4699,7 @@ class PEDACmd(object):
                             text = text.replace(hex(v),hex(v) + " <" + k + ">")
                 else :
                     pass
-                if "bl" in opcode  :
+                if  opcode == "bl"  or opcode == "blx" :
                     msg(format_disasm_code(text, pc))
                     self.dumpargs()
                 elif len(m) > 0:
