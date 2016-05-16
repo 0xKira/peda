@@ -1477,10 +1477,14 @@ class PEDA(object):
         target = None
         inst = inst.strip()
         opcode = inst.split(":\t")[-1].split()[0]
+        (arch,bits) = self.getarch()
         # this regex includes x86_64 RIP relateive address reference
         if "ret" in opcode :
-            val = self.parse_and_eval("$sp")
-            target = self.parse_and_eval("{long}"+val)
+            if "aarch64" in arch :
+                target = self.parse_and_eval("x30")
+            else :
+                val = self.parse_and_eval("$sp")
+                target = self.parse_and_eval("{long}"+val)
         else :
             p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*(0x[^ ]*)")
             m = p.search(inst)
@@ -1580,6 +1584,8 @@ class PEDA(object):
         if next_addr is None:
             next_addr = 0
 
+        if "ret" in opcode :
+            return next_addr
         if opcode == "b" :
             return next_addr    
         if opcode == "b.eq" and flags["Z"]:
@@ -4716,7 +4722,7 @@ class PEDACmd(object):
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
-                elif opcode.startswith("b") :
+                elif opcode.startswith("b") or "ret" in opcode :
                     text = ""
                     if "aarch64" in arch :
                         jumpto = peda.aarch64_testjump(inst)
