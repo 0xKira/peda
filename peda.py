@@ -1553,7 +1553,7 @@ class PEDA(object):
 
     def aarch64_testjump(self, inst=None):
         """
-        Test if jump instruction is taken or not
+        Test if jump instruction is taken or not - aarch64
 
         Returns:
             - (status, address of target jumped instruction)
@@ -1574,8 +1574,6 @@ class PEDA(object):
         if next_addr is None:
             next_addr = 0
 
-        if opcode == "bl":
-            return next_addr
         if opcode == "b" :
             return next_addr    
         if opcode == "b.eq" and flags["Z"]:
@@ -1605,6 +1603,62 @@ class PEDA(object):
         if opcode == "b.gt" and not flags["Z"] and (flags["N"] == flags["V"]):
             return next_addr
         if opcode == "b.le" and flags["Z"] and (flags["N"] != flags["V"]):
+            return next_addr
+
+        return None
+
+    def arm_testjump(self, inst=None):
+        """
+        Test if jump instruction is taken or not - arm
+
+        Returns:
+            - (status, address of target jumped instruction)
+        """
+
+        flags = self.get_cpsr()
+        if not flags:
+            return None
+
+        if not inst:
+            pc = self.getreg("pc")
+            inst = self.execute_redirect("x/i 0x%x" % pc)
+            if not inst:
+                return None
+
+        opcode = inst.split(":\t")[-1].split()[0]
+        next_addr = self.eval_target(inst)
+        if next_addr is None:
+            next_addr = 0
+
+        if opcode == "b" :
+            return next_addr    
+        if opcode.startswith("beq") and flags["Z"]:
+            return next_addr
+        if opcode.startswith("bne") and not flags["Z"]:
+            return next_addr
+        if opcode.startswith("bcs") and flags["C"]:
+            return next_addr
+        if opcode.startswith("bcc") and not flags["C"]:
+            return next_addr
+        if opcode.startswith("bmi") and flags["N"]:
+            return next_addr
+        if opcode.startswith("bpl") and not flags["N"]:
+            return next_addr
+        if opcode.startswith("bvs") and flags["O"]:
+            return next_addr
+        if opcode.startswith("bvc") and not flags["O"]:
+            return next_addr
+        if opcode.startswith("bhi") and not flags["Z"] and flags["C"]:
+            return next_addr
+        if opcode.startswith("bls") and not flags["C"] and flags["Z"]:
+            return next_addr
+        if opcode.startswith("bge") and (flags["N"] == flags["V"]):
+            return next_addr
+        if opcode.startswith("blt") and (flags["N"] != flags["V"]):
+            return next_addr
+        if opcode.startswith("bgt") and not flags["Z"] and (flags["N"] == flags["V"]):
+            return next_addr
+        if opcode.startswith("ble") and flags["Z"] and (flags["N"] != flags["V"]):
             return next_addr
 
         return None
@@ -4643,7 +4697,6 @@ class PEDACmd(object):
                     for (k,v) in armplt.items():
                         if hex(v) in text :
                             text = text.replace(hex(v),hex(v) + " <" + k + ">")
-                    msg(format_disasm_code(text, pc))
                 else :
                     pass
                 if "bl" in opcode  :
@@ -4657,9 +4710,12 @@ class PEDACmd(object):
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
-                elif ("b." in opcode or "b" == opcode)  and "aarch64" in arch:
+                elif opcode.startswith("b") :
                     text = ""
-                    jumpto = peda.aarch64_testjump(inst)
+                    if "aarch64" in arch :
+                        jumpto = peda.aarch64_testjump(inst)
+                    else :
+                        jumpto = peda.arm_testjump(inst)
                     if jumpto : #jump is token
                         code = peda.disassemble_around(pc, count)
                         code = code.splitlines()
