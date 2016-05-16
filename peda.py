@@ -1478,20 +1478,24 @@ class PEDA(object):
         inst = inst.strip()
         opcode = inst.split(":\t")[-1].split()[0]
         # this regex includes x86_64 RIP relateive address reference
-        p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*(0x[^ ]*)")
-        m = p.search(inst)
-        if not m:
-            p = re.compile(".*?:\s.*(0x[^ ]*)")
+        if "ret" in opcode :
+            val = self.parse_and_eval("$sp")
+            target = self.parse_and_eval("{long}"+val)
+        else :
+            p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*(0x[^ ]*)")
             m = p.search(inst)
-            if m:
-                target = m.group(1)
-            else:
-                target = None
-        else:
-            if "]" in m.group(2): # e.g DWORD PTR [ebx+0xc]
-                p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*\[(.*)\]")
+            if not m:
+                p = re.compile(".*?:\s.*(0x[^ ]*)")
                 m = p.search(inst)
-            target = self.parse_and_eval("%s[%s]" % (m.group(1), m.group(2).strip()))
+                if m:
+                    target = m.group(1)
+                else:
+                    target = None
+            else:
+                if "]" in m.group(2): # e.g DWORD PTR [ebx+0xc]
+                    p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*\[(.*)\]")
+                    m = p.search(inst)
+                target = self.parse_and_eval("%s[%s]" % (m.group(1), m.group(2).strip()))
 
         return to_int(target)
 
@@ -1517,7 +1521,9 @@ class PEDA(object):
         next_addr = self.eval_target(inst)
         if next_addr is None:
             next_addr = 0
-
+        
+        if opcode == "ret":
+            return next_addr
         if opcode == "jmp":
             return next_addr
         if opcode == "je" and flags["ZF"]:
@@ -4767,7 +4773,7 @@ class PEDACmd(object):
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
             # stopped at jump
-                elif "j" in opcode:
+                elif "j" in opcode or "ret" in opcode:
                     jumpto = peda.testjump(inst)
                     if jumpto: # JUMP is taken
                         code = peda.disassemble_around(pc, count)
