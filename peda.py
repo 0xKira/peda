@@ -66,6 +66,7 @@ REGISTERS = {
 }
 
 armplt = {}
+diff_regs = {}
 
 ###########################################################################
 class PEDA(object):
@@ -5380,6 +5381,13 @@ class PEDACmd(object):
             text += "\n"
             return text
 
+        def get_diff_reg_text(r, v):
+            text = red("%s" % r.upper().ljust(3)) + ": "
+            chain = peda.examine_mem_reference(v)
+            text += format_reference_chain(chain)
+            text += "\n"
+            return text
+
         (arch, bits) = peda.getarch()
         if str(address).startswith("r"):
             # Register
@@ -5387,7 +5395,11 @@ class PEDACmd(object):
             if regname is None:
                 for r in REGISTERS[arch]:
                     if r in regs:
-                        text += get_reg_text(r, regs[r])
+                        if r in diff_regs and diff_regs[r] != regs[r] :
+                            text += get_diff_reg_text(r, regs[r])
+                        else :
+                            text += get_reg_text(r, regs[r])
+                        diff_regs[r] = regs[r]
                         # text += green("%s" % r.upper().ljust(3)) + ": "
                         # chain = peda.examine_mem_reference(regs[r])
                         # text += format_reference_chain(chain)
