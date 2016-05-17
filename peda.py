@@ -62,6 +62,7 @@ REGISTERS = {
          "s0","s1","s2","s3","s4","s6","s6","s7","gp","sp","s8","ra","pc"],
     "elf32-powerpc":list(map(lambda x: "r%i" % x, range(32))) + ["pc","lr"], 
     "elf64-littleaarch64": list(map(lambda x: "x%i" % x, range(31))) +  ["sp","pc"]
+        + list(map(lambda x: "w%i" % x, range(31)))
 }
 
 armplt = {}
@@ -1585,7 +1586,17 @@ class PEDA(object):
             next_addr = 0
 
         if "ret" in opcode :
-            return next_addr
+            return next_addr 
+        if opcode == "cbnz" :
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = to_int(self.parse_and_eval(rn))
+            if val == 0 :
+                return next_addr
+        if opcode == "cbz" :
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = to_int(self.parse_and_eval(rn))
+            if val == 0 :
+                return next_addr
         if opcode == "b" :
             return next_addr    
         if opcode == "b.eq" and flags["Z"]:
@@ -1642,6 +1653,16 @@ class PEDA(object):
         if next_addr is None:
             next_addr = 0
 
+        if opcode == "cbnz" :
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = to_int(self.parse_and_eval(rn))
+            if val == 0 :
+                return next_addr
+        if opcode == "cbz" :
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = to_int(self.parse_and_eval(rn))
+            if val == 0 :
+                return next_addr
         if opcode == "b" :
             return next_addr    
         if opcode.startswith("beq") and flags["Z"]:
@@ -4722,7 +4743,7 @@ class PEDACmd(object):
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
                     msg("%s : %s" % (m[0],format_reference_chain(chain)))
-                elif opcode.startswith("b") or "ret" in opcode :
+                elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")) :
                     text = ""
                     if "aarch64" in arch :
                         jumpto = peda.aarch64_testjump(inst)
