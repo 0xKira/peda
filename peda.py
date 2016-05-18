@@ -4730,9 +4730,10 @@ class PEDACmd(object):
                 if armplt is not None and "arm" in arch :
                     if len(armplt) == 0 :
                         peda.elfsymbols()
-                    for (k,v) in armplt.items():
-                        if hex(v) in text :
-                            text = text.replace(hex(v),hex(v) + " <" + k + ">")
+                    if armplt is not None :
+                        for (k,v) in armplt.items():
+                            if hex(v) in text :
+                                text = text.replace(hex(v),hex(v) + " <" + k + ">")
                 else :
                     pass
                 if  opcode == "bl"  or opcode == "blx" or opcode == "blr":
