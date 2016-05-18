@@ -2695,6 +2695,8 @@ class PEDA(object):
             procname = self.getfile()
             result = subprocess.check_output("objdump -d -j .plt " + procname +
                 "| grep -A 31337 .plt\>",shell=True).decode('utf8')
+            if "@plt" in result :
+                return None
             pltentry = result.split('\n')[1:]
 
             temp.append(int(pltentry[0].split(":")[0].strip(),16))
@@ -2718,9 +2720,10 @@ class PEDA(object):
         (arch,bits) = self.getarch()
         if "arm" in arch :
             global armplt
-            if len(armplt) == 0 :
+            if armplt and len(armplt) == 0 :
                 armplt = _getplt()
-            return armplt
+            if armplt :
+                return armplt
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
@@ -4725,7 +4728,7 @@ class PEDACmd(object):
             # stopped at function call
             if "aarch64" in arch or "arm" in arch:
                 text += peda.disassemble_around(pc, count)
-                if "arm" in arch :
+                if armplt and "arm" in arch :
                     if len(armplt) == 0 :
                         peda.elfsymbols()
                     for (k,v) in armplt.items():
