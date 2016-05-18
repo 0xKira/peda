@@ -1927,6 +1927,8 @@ class PEDA(object):
         # select maps matched specific name
         if name == "binary":
             name = self.getfile()
+        if name == "heap" :
+            name = "[heap]"
         if name is None or name == "all":
             name = ""
 
@@ -2482,7 +2484,11 @@ class PEDA(object):
         if self.is_writable(value): # writable data address
             out = examine_data(value, bits)
             if out:
-                result = (to_hex(value), "data", out.split(":", 1)[1].strip())
+                (heap_start,heap_end,perm,mapname) = self.get_vmmap("heap")[0]
+                if value >= heap_start and value < heap_end :
+                    result = (to_hex(value), "heap", out.split(":", 1)[1].strip())
+                else :
+                    result = (to_hex(value), "data", out.split(":", 1)[1].strip())
 
         elif self.is_executable(value): # code/rodata address
             if self.is_address(value, binmap):
@@ -4902,7 +4908,7 @@ class PEDACmd(object):
         if "stack" in opt or "SIGSEGV" in status:
             self.context_stack(count)
         msg("%s" % ("─"*78), "yellow")
-        msg("Legend: %s, %s, %s, value" % (red("code"), blue("data"), green("rodata")))
+        msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
 
         # display stopped reason
         if "SIG" in status:

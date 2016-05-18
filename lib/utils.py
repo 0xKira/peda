@@ -454,6 +454,7 @@ def format_address(addr, type):
         "data": "blue",
         "code": "red",
         "rodata": "green",
+        "heap": "purple",
         "value": None
     }
     return colorize(addr, colorcodes[type])
