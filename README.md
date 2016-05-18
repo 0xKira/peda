@@ -6,8 +6,13 @@ PEDA - Python Exploit Development Assistance for GDB
 ## Enhancements:
 * Dereference memory trace
 * Basic support for ARMv7 and aarch64
+  * register support
+  * condition jump support
+  * cpsr register support
 * Simple support for ppc and mipsel
+  * register support
 * Recover armv7 dynamic symbol
+* Show different register from prev instruction 
 
 ## Key Features:
 * Enhance the display of gdb: colorize and display disassembly codes, registers, memory information during debugging.
@@ -40,5 +45,5 @@ PEDA - Python Exploit Development Assistance for GDB
     echo "DONE! debug your program with gdb and enjoy"
 
 ## Screenshot
-![ARM64](http://i.imgur.com/EiU5FYD.png)
+![ARM64](http://i.imgur.com/iValQBY.png)
 
