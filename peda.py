@@ -57,7 +57,7 @@ REGISTERS = {
     "elf32-i386": ["eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "eip"],
     "elf64-x86-64": ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "rip",
          "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"],
-    "elf32-littlearm":["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","sp","lr","pc"],
+    "elf32-littlearm":["r0","r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","sp","lr","pc"],
     "elf32-tradlittlemips":["a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
          "s0","s1","s2","s3","s4","s6","s6","s7","gp","sp","s8","ra","pc"],
     "elf32-powerpc":list(map(lambda x: "r%i" % x, range(32))) + ["pc","lr"], 
