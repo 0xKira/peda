@@ -804,7 +804,7 @@ class PEDA(object):
         else:
             code = out
         (arch,bits) = self.getarch()
-        if "arm" in arch :
+        if "arm" in arch and armplt is not None :
             if len(armplt) == 0 :
                 peda.elfsymbols()
             for (k,v) in armplt.items():
@@ -2698,7 +2698,6 @@ class PEDA(object):
             if "@plt" in result :
                 return None
             pltentry = result.split('\n')[1:]
-
             temp.append(int(pltentry[0].split(":")[0].strip(),16))
             pltentry = pltentry[5:]
             for i in range(int(len(pltentry)/3)):
@@ -2718,11 +2717,11 @@ class PEDA(object):
         
         
         (arch,bits) = self.getarch()
-        if "arm" in arch :
+        if "arm" in arch and armplt is not None :
             global armplt
-            if armplt and len(armplt) == 0 :
+            if len(armplt) == 0 :
                 armplt = _getplt()
-            if armplt :
+            if armplt is not None  :
                 return armplt
 
         binmap = self.get_vmmap("binary")
@@ -4728,7 +4727,7 @@ class PEDACmd(object):
             # stopped at function call
             if "aarch64" in arch or "arm" in arch:
                 text += peda.disassemble_around(pc, count)
-                if armplt and "arm" in arch :
+                if armplt is not None and "arm" in arch :
                     if len(armplt) == 0 :
                         peda.elfsymbols()
                     for (k,v) in armplt.items():
