@@ -5386,7 +5386,7 @@ class PEDACmd(object):
             return text
 
         def get_diff_reg_text(r, v):
-            text = red("%s" % r.upper().ljust(3)) + ": "
+            text = red("%s" % r.upper().ljust(3),"light") + ": "
             chain = peda.examine_mem_reference(v)
             text += format_reference_chain(chain)
             text += "\n"
