@@ -147,6 +147,15 @@ def blue(text, attrib=None):
     """Wrapper for colorize(text, 'blue')"""
     return colorize(text, "blue", attrib)
 
+def purple(text, attrib=None):
+    """Wrapper for colorize(text, 'purple')"""
+    return colorize(text, "purple", attrib)
+
+def cyan(text, attrib=None):
+    """Wrapper for colorize(text, 'cyan')"""
+    return colorize(text, "cyan", attrib)
+
+
 class message(object):
     """
     Generic pretty printer with redirection.

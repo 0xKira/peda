@@ -4690,7 +4690,7 @@ class PEDACmd(object):
 
         pc = peda.getreg("pc")
         # display register info
-        msg("[%s]" % "registers".center(78, "-"), "blue")
+        msg("%s" % " Registers ".center(78, "─"), "yellow")
         self.xinfo("register")
 
         return
@@ -4720,7 +4720,7 @@ class PEDACmd(object):
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
-        text = blue("[%s]" % "code".center(78, "-"))
+        text = yellow("%s" % " Code ".center(78, "─"))
         msg(text)
         if inst: # valid $PC
             text = ""
@@ -4747,7 +4747,7 @@ class PEDACmd(object):
                         exp += "+8"
                     val = peda.parse_and_eval(exp)
                     chain = peda.examine_mem_reference(to_int(val))
-                    msg("%s : %s" % (m[0],format_reference_chain(chain)))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
                 elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")) :
                     text = ""
                     if "aarch64" in arch :
@@ -4803,7 +4803,7 @@ class PEDACmd(object):
                         exp += "+" + str(inssize)
                     val = peda.parse_and_eval(exp).split()[0]
                     chain = peda.examine_mem_reference(to_int(val))
-                    msg("%s : %s" % (m[0],format_reference_chain(chain)))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
             # stopped at jump
                 elif "j" in opcode or "ret" in opcode:
                     jumpto = peda.testjump(inst)
@@ -4855,7 +4855,7 @@ class PEDACmd(object):
         if not self._is_running():
             return
 
-        text = blue("[%s]" % "stack".center(78, "-"))
+        text = yellow("%s" % " Stack ".center(78, "─"))
         msg(text)
         sp = peda.getreg("sp")
         if peda.is_address(sp):
@@ -4901,7 +4901,7 @@ class PEDACmd(object):
         # display stack content, forced in case SIGSEGV
         if "stack" in opt or "SIGSEGV" in status:
             self.context_stack(count)
-        msg("[%s]" % ("-"*78), "blue")
+        msg("%s" % ("─"*78), "yellow")
         msg("Legend: %s, %s, %s, value" % (red("code"), blue("data"), green("rodata")))
 
         # display stopped reason
@@ -6730,7 +6730,7 @@ Alias("reg", "peda xinfo register")
 peda.execute("set confirm off")
 peda.execute("set verbose off")
 peda.execute("set output-radix 0x10")
-peda.execute("set prompt \001%s\002" % red("\002gdb-peda$ \001")) # custom prompt
+peda.execute("set prompt \001%s\002" % blue("\002gdb-peda$ \001","light")) # custom prompt
 peda.execute("set height 0") # disable paging
 peda.execute("set history expansion on")
 peda.execute("set history save on") # enable history saving
