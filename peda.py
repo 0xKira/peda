@@ -2717,8 +2717,9 @@ class PEDA(object):
         
         
         (arch,bits) = self.getarch()
+        global armplt
         if "arm" in arch and armplt is not None :
-            global armplt
+            
             if len(armplt) == 0 :
                 armplt = _getplt()
             if armplt is not None  :
