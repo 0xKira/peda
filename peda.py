@@ -4890,16 +4890,20 @@ class PEDACmd(object):
 
         filename = sal.symtab.fullname()
         try :
-            if not hasattr(self,"source"):
+            if not hasattr(self,"source") or not hasattr(self,"filename") or filename != self.filename:
+                self.filename = filename
                 with open(filename) as source_file :
                     self.source = source_file.read()
                     self.source_lines = self.source.splitlines()
         except Exception as e :
        #     msg("Cannot display %s" % filename)
             return
+
         msg(yellow("%s" % " Source ".center(78, "─"),"light"))
+        
         start = max(cur_line -1 - count,0)
         end = min(cur_line -1 + count + 1,len(self.source_lines))
+
         for number,line in enumerate(self.source_lines[start:end],start+1):
             if int(number) == cur_line:
                 msg(green("==> " + str(number) + " " + line.rstrip("\n"),"light"))
@@ -4913,7 +4917,6 @@ class PEDACmd(object):
         Usage:
             MYNAME [reg,code,stack,all] [code/stack length]
         """
-
         (opt, count) = normalize_argv(arg, 2)
         if to_int(count) is None:
             count = 8
