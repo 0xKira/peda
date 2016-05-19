@@ -4901,8 +4901,12 @@ class PEDACmd(object):
 
         msg(yellow("%s" % " Source ".center(78, "─"),"light"))
         
-        start = max(cur_line -1 - count,0)
-        end = min(cur_line -1 + count + 1,len(self.source_lines))
+        start = max(cur_line -  count//2 ,0)
+        end = min(cur_line + count//2 ,len(self.source_lines))
+        if (cur_line - start) < (count//2) :
+            end += (count//2) -  cur_line 
+        if (end - cur_line) < (count//2):
+            start -= count//2 - (end - cur_line)
         for number,line in enumerate(self.source_lines[start:end],start+1):
             if int(number) == cur_line:
                 msg(green("==> " + str(number) + " " + line.rstrip("\n"),"light"))
@@ -4922,8 +4926,10 @@ class PEDACmd(object):
         if opt is None:
             opt = config.Option.get("context")
         if opt == "all":
-            opt = "register,code,stack,source"
-
+            opt = "source,register,code,stack"
+        
+        context_map = {"register":self.context_register,"code":self.context_code,
+                "stack":self.context_stack,"source":self.context_source}
         opt = opt.replace(" ", "").split(",")
 
         if not opt:
@@ -4932,19 +4938,29 @@ class PEDACmd(object):
         if not self._is_running():
             return
         status = peda.get_status()
-        if "source" in opt or "SIGSEGV" in status:
-            self.context_source(count)
+        
+        for cont in opt:
+            context_map[cont](count)
+
+        if "SIGSEGV" in status  :
+            if "register" not in opt :
+                self.context_register()
+            if "stack" not in opt :
+                self.context_stack(count)
+
+#        if "source" in opt or "SIGSEGV" in status:
+#            self.context_source(count)
         # display registers
-        if "reg" in opt or "register" in opt:
-            self.context_register()
+#        if "reg" in opt or "register" in opt:
+#            self.context_register()
 
         # display assembly code
-        if "code" in opt:
-            self.context_code(count)
+#        if "code" in opt:
+#            self.context_code(count)
 
         # display stack content, forced in case SIGSEGV
-        if "stack" in opt or "SIGSEGV" in status:
-            self.context_stack(count)
+#        if "stack" in opt or "SIGSEGV" in status:
+#            self.context_stack(count)
         msg("%s" % ("─"*78), "yellow")
         msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
 
@@ -4953,6 +4969,25 @@ class PEDACmd(object):
             msg("Stopped reason: %s" % red(status))
 
         return
+
+    def clean_screen(self):
+        """
+        clean screen
+        """
+        msg("\x1b[H\x1b[J")
+        return
+
+    def switch_context(self):
+        """
+        Switch context layout
+        """
+        opt = config.Option.get("context")
+        if "code" in opt :
+            config.Option.set("context","register,source,stack")
+            self.context()
+        else :
+            config.Option.set("context","register,code,stack")
+            self.context()
 
 
     #################################
