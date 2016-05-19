@@ -2484,9 +2484,13 @@ class PEDA(object):
         if self.is_writable(value): # writable data address
             out = examine_data(value, bits)
             if out:
-                (heap_start,heap_end,perm,mapname) = self.get_vmmap("heap")[0]
-                if value >= heap_start and value < heap_end :
-                    result = (to_hex(value), "heap", out.split(":", 1)[1].strip())
+                heapmap = self.get_vmmap("heap")
+                if heapmap   :
+                    (heap_start,heap_end,perm,mapname) = heapmap[0]
+                    if value >= heap_start and value < heap_end :
+                        result = (to_hex(value), "heap", out.split(":", 1)[1].strip())
+                    else :
+                        result = (to_hex(value), "data", out.split(":", 1)[1].strip())
                 else :
                     result = (to_hex(value), "data", out.split(":", 1)[1].strip())
 
