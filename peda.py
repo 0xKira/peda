@@ -4700,7 +4700,7 @@ class PEDACmd(object):
 
         pc = peda.getreg("pc")
         # display register info
-        msg("%s" % " Registers ".center(78, "─"), "yellow")
+        msg(yellow("%s" % " Registers ".center(78, "─"),"light"))
         self.xinfo("register")
 
         return
@@ -4730,7 +4730,7 @@ class PEDACmd(object):
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
-        text = yellow("%s" % " Code ".center(78, "─"))
+        text = yellow("%s" % " Code ".center(78, "─"),"light")
         msg(text)
         if inst: # valid $PC
             text = ""
@@ -4865,7 +4865,7 @@ class PEDACmd(object):
         if not self._is_running():
             return
 
-        text = yellow("%s" % " Stack ".center(78, "─"))
+        text = yellow("%s" % " Stack ".center(78, "─"),"light")
         msg(text)
         sp = peda.getreg("sp")
         if peda.is_address(sp):
@@ -4897,12 +4897,12 @@ class PEDACmd(object):
         except Exception as e :
        #     msg("Cannot display %s" % filename)
             return
-        msg("%s" % " Source ".center(78, "─"), "yellow")
+        msg(yellow("%s" % " Source ".center(78, "─"),"light"))
         start = max(cur_line -1 - count,0)
         end = min(cur_line -1 + count + 1,len(self.source_lines))
         for number,line in enumerate(self.source_lines[start:end],start+1):
             if int(number) == cur_line:
-                msg("==> " + str(number) + " " + line.rstrip("\n"),"green")
+                msg(green("==> " + str(number) + " " + line.rstrip("\n"),"light"))
             else :
                 msg("    " + str(number)+ " " + line.rstrip("\n"))
         return 
