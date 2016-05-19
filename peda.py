@@ -4875,6 +4875,38 @@ class PEDACmd(object):
 
         return
 
+    @msg.bufferize
+    def context_source(self, *arg):
+        """
+        Display source of current execution context
+        """
+
+        (count,) = normalize_argv(arg, 1)
+
+        sal = gdb.selected_frame().find_sal()
+        cur_line = sal.line
+        if cur_line == 0 :
+            return
+
+        filename = sal.symtab.fullname()
+        try :
+            if not hasattr(self,"source"):
+                with open(filename) as source_file :
+                    self.source = source_file.read()
+                    self.source_lines = self.source.splitlines()
+        except Exception as e :
+       #     msg("Cannot display %s" % filename)
+            return
+        msg("%s" % " Source ".center(78, "─"), "yellow")
+        start = max(cur_line -1 - count,0)
+        end = min(cur_line -1 + count + 1,len(self.source_lines))
+        for number,line in enumerate(self.source_lines[start:end],start+1):
+            if int(number) == cur_line:
+                msg("==> " + str(number) + " " + line.rstrip("\n"),"green")
+            else :
+                msg("    " + str(number)+ " " + line.rstrip("\n"))
+        return 
+
     def context(self, *arg):
         """
         Display various information of current execution context
@@ -4883,13 +4915,12 @@ class PEDACmd(object):
         """
 
         (opt, count) = normalize_argv(arg, 2)
-
         if to_int(count) is None:
             count = 8
         if opt is None:
             opt = config.Option.get("context")
         if opt == "all":
-            opt = "register,code,stack"
+            opt = "register,code,stack,source"
 
         opt = opt.replace(" ", "").split(",")
 
@@ -4898,8 +4929,9 @@ class PEDACmd(object):
 
         if not self._is_running():
             return
-
         status = peda.get_status()
+        if "source" in opt or "SIGSEGV" in status:
+            self.context_source(count)
         # display registers
         if "reg" in opt or "register" in opt:
             self.context_register()

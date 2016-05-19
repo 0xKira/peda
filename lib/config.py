@@ -34,7 +34,7 @@ OPTIONS = {
     "snapshot"  : ("peda-snapshot-#FILENAME#.raw", "target file to save crash dump of fuzzing"),
     "autosave"  : ("on", "auto saving peda session, e.g: on|off"),
     "payload"   : ("peda-payload-#FILENAME#.txt", "target file to save output of payload command"),
-    "context"   : ("register,code,stack", "context display setting, e.g: register, code, stack, all"),
+    "context"   : ("register,code,stack,source", "context display setting, e.g: register, code, stack, all"),
     "verbose"   : ("off", "show detail execution of commands, e.g: on|off"),
     "debug"     : ("off", "show detail error of peda commands, e.g: on|off"),
     "_teefd"    : ("", "internal use only for tracelog/crashlog writing")
