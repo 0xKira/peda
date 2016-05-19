@@ -559,6 +559,7 @@ def format_disasm_code(code, nearby=None):
             elif addr == target:
                 style = "bold"
                 color = "green"
+                prefix = colorize(prefix, color, style)
 
             code = colorize(line.split(";")[0], color, style)
             if ";" in line:

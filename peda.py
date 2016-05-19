@@ -883,6 +883,8 @@ class PEDA(object):
 
         lines = code.strip().splitlines()
         for i in range(1, count+1):
+            if ":" not in lines[i] :
+                i += 1
             (addr, code) = lines[i].split(":", 1)
             addr = re.search("(0x[^ ]*)", addr).group(1)
             result += [(to_int(addr), code)]
