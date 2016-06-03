@@ -1829,7 +1829,7 @@ class PEDA(object):
             if remote: # remote target, not yet supported
                 return maps
             else: # local target
-                try:  out = execute_external_command("vmmap -w %s" % self.getpid())
+                try:  out = execute_external_command("/usr/bin/vmmap -w %s" % self.getpid())
                 except: error_msg("could not read vmmap of process")
 
             matches = pattern.findall(out)
@@ -2532,7 +2532,7 @@ class PEDA(object):
         return result
 
     @memoized
-    def examine_mem_reference(self, value):
+    def examine_mem_reference(self, value, depth=5):
         """
         Deeply examine a value in memory for its references
 
@@ -2543,8 +2543,16 @@ class PEDA(object):
             - list of tuple of (value(Int), type(String), next_value(Int))
         """
         result = []
+        if depth <= 0:
+            depth = 0xffffffff
+
         (v, t, vn) = self.examine_mem_value(value)
         while vn is not None:
+            if len(result) > depth:
+                _v, _t, _vn = result[-1]
+                result[-1] = (_v, _t, "--> ...")
+                break
+
             result += [(v, t, vn)]
             if len(result) > 5 :
                 break
@@ -5889,10 +5897,6 @@ class PEDACmd(object):
             else:
                 for (r, v) in sorted(regs.items()):
                     text += get_reg_text(r, v)
-                    # text += green("%s" % r.upper().ljust(3)) + ": "
-                    # chain = peda.examine_mem_reference(v)
-                    # text += format_reference_chain(chain)
-                    # text += "\n"
             if text:
                 msg(text.strip())
             if "x86-64" in arch or "i386" in arch :
@@ -5915,7 +5919,7 @@ class PEDACmd(object):
             warning_msg("not a register nor an address")
         else:
             # Address
-            chain = peda.examine_mem_reference(address)
+            chain = peda.examine_mem_reference(address, depth=0)
             text += format_reference_chain(chain) + "\n"
             vmrange = peda.get_vmrange(address)
             if vmrange:
