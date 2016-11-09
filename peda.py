@@ -4322,7 +4322,7 @@ class PEDACmd(object):
         """
         syscall = {}
         syscalltab = {}
-
+        regslist = ["ebx","ecx","edx","esi","edi","ebp"]
         with open( os.path.dirname(PEDAFILE)+ '/data/x86syscall.csv',"r") as f:
             for row in csv.DictReader(f):
                 tmp = {}
@@ -4348,12 +4348,61 @@ class PEDACmd(object):
             
             msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
             text = ""
+            text2 = ""
             text += name + "("
-            for (key,content) in sorted(arg.items()):
-                value = peda.getreg(key)
-                text += blue(content,"light") + " = " + hex(value) + ","
-                chain = peda.examine_mem_reference(value)
-                msg("%s : %s" % (blue(content,"light"),format_reference_chain(chain)))
+            for key in regslist :
+                if key in arg :
+                    value = peda.getreg(key)
+                    content = arg[key]
+                    text += blue(content,"light") + " = " + hex(value) + ","
+                    chain = peda.examine_mem_reference(value)
+                    text2 += "%s : %s\n" % (blue(content,"light"),format_reference_chain(chain))
+            text = text[:-1] + green(")","light")
+            msg(green(text,"light"))
+            msg(text2.strip())
+        except :
+            msg(red("Syscall not fround !!"))
+    
+    def dumpsyscall_x64(self, *arg):
+        """
+        Display x86 syacall
+        """
+        syscall = {}
+        syscalltab = {}
+        regslist = ["rdi","rsi","rdx","rcx","r8","r9"]
+        with open( os.path.dirname(PEDAFILE)+ '/data/x64syscall.csv',"r") as f:
+            for row in csv.DictReader(f):
+                tmp = {}
+                syscall[row['rax']] = row['syscall']
+                if len(row['rdi']) > 0 :
+                    tmp['rdi'] = row['rdi']
+                if len(row['rsi']) > 0 :
+                    tmp['rsi'] = row['rsi']
+                if len(row['rdx']) > 0 :
+                    tmp['rdx'] = row['rdx']
+                if len(row['rcx']) > 0 :
+                    tmp['rcx'] = row['rcx']
+                if len(row['r8']) > 0 :
+                    tmp['r8'] = row['r8']
+                if len(row['r9']) > 0 :
+                    tmp['r9'] = row['r9']
+                syscalltab[row['syscall']] = tmp
+        f.close()
+        nr = peda.getreg("rax")
+        try :
+            name = syscall[str(nr)]
+            arg = syscalltab[name]
+            
+            msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
+            text = ""
+            text += name + "("
+            for key in regslist :
+                if key in arg :
+                    value = peda.getreg(key)
+                    content = arg[key]
+                    text += blue(content,"light") + " = " + hex(value) + ","
+                    chain = peda.examine_mem_reference(value)
+                    msg("%s : %s" % (blue(content,"light"),format_reference_chain(chain)))
             text = text[:-1] + green(")","light")
             msg(green(text,"light"))
         except :
@@ -4846,7 +4895,11 @@ class PEDACmd(object):
                 if "bl" in opcode :
                     self.dumpargs()
             else :
-                if "call" in opcode:
+                if "syscall" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x64()
+                elif "call" in opcode:
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
                     self.dumpargs()
