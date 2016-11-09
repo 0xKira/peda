@@ -6687,6 +6687,26 @@ class PEDACmd(object):
         return
     snapshot.options = ["save", "restore"]
 
+    def crashoff(self, *arg):
+        """
+        Display crash offset when use pattern_create
+       	Usage:
+            MYNAME
+        """
+        value = peda.getreg("pc")
+	
+        if value is None:
+            self._missing_argument()
+
+        pos = cyclic_pattern_offset(value)
+        if pos is None:
+            msg("%s not found in pattern buffer" % hex(value))
+        else:
+            msg("%s found at offset: %d" % (hex(value), pos))
+
+        return 
+
+
     def crashdump(self, *arg):
         """
         Display crashdump info and save to file
@@ -6900,7 +6920,6 @@ Alias("pset", "peda set")
 Alias("pshow", "peda show")
 Alias("pbreak", "peda pltbreak")
 Alias("pattc", "peda pattern_create")
-Alias("patto", "peda pattern_offset")
 Alias("patta", "peda pattern_arg")
 Alias("patte", "peda pattern_env")
 Alias("patts", "peda pattern_search")
