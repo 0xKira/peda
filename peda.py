@@ -10,6 +10,7 @@ from __future__ import division
 from __future__ import print_function
 
 import re
+import csv
 import os
 import sys
 import shlex
@@ -4314,6 +4315,51 @@ class PEDACmd(object):
 
         return
 
+
+    def dumpsyscall_x86(self, *arg):
+        """
+        Display x86 syacall
+        """
+        syscall = {}
+        syscalltab = {}
+
+        with open( os.path.dirname(PEDAFILE)+ '/data/x86syscall.csv',"r") as f:
+            for row in csv.DictReader(f):
+                tmp = {}
+                syscall[row['eax']] = row['syscall']
+                if len(row['ebx']) > 0 :
+                    tmp['ebx'] = row['ebx']
+                if len(row['ecx']) > 0 :
+                    tmp['ecx'] = row['ecx']
+                if len(row['edx']) > 0 :
+                    tmp['edx'] = row['edx']
+                if len(row['esi']) > 0 :
+                    tmp['esi'] = row['esi']
+                if len(row['edi']) > 0 :
+                    tmp['edi'] = row['edi']
+                if len(row['ebp']) > 0 :
+                    tmp['ebp'] = row['ebp']
+                syscalltab[row['syscall']] = tmp
+        f.close()
+        nr = peda.getreg("eax")
+        try :
+            name = syscall[str(nr)]
+            arg = syscalltab[name]
+            
+            msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
+            text = ""
+            text += name + "("
+            for (key,content) in sorted(arg.items()):
+                value = peda.getreg(key)
+                text += blue(content,"light") + " = " + hex(value) + ","
+                chain = peda.examine_mem_reference(value)
+                msg("%s : %s" % (blue(content,"light"),format_reference_chain(chain)))
+            text = text[:-1] + green(")","light")
+            msg(green(text,"light"))
+        except :
+            msg(red("Syscall not fround !!"))
+
+
     def xuntil(self, *arg):
         """
         Continue execution until an address or function
@@ -4804,6 +4850,10 @@ class PEDACmd(object):
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
                     self.dumpargs()
+                elif "int" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x86()
                 elif len(m) > 0 :
                     text += peda.disassemble_around(pc, count)
                     msg(format_disasm_code(text, pc))
