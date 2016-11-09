@@ -4356,9 +4356,9 @@ class PEDACmd(object):
                     content = arg[key]
                     text += blue(content,"light") + " = " + hex(value) + ","
                     chain = peda.examine_mem_reference(value)
-                    text2 += "%s : %s\n" % (blue(content,"light"),format_reference_chain(chain))
-            text = text[:-1] + green(")","light")
-            msg(green(text,"light"))
+                    text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
+            text = text[:-1] + yellow(")","light")
+            msg(yellow(text,"light"))
             msg(text2.strip())
         except :
             msg(red("Syscall not fround !!"))
@@ -4395,6 +4395,7 @@ class PEDACmd(object):
             
             msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
             text = ""
+            text2 = ""
             text += name + "("
             for key in regslist :
                 if key in arg :
@@ -4402,9 +4403,10 @@ class PEDACmd(object):
                     content = arg[key]
                     text += blue(content,"light") + " = " + hex(value) + ","
                     chain = peda.examine_mem_reference(value)
-                    msg("%s : %s" % (blue(content,"light"),format_reference_chain(chain)))
+                    text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
             text = text[:-1] + green(")","light")
-            msg(green(text,"light"))
+            msg(yellow(text,"light"))
+            msg(text2.strip())
         except :
             msg(red("Syscall not fround !!"))
 
