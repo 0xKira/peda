@@ -36,7 +36,6 @@ except ImportError:
     import pickle
 
 
-
 from skeleton import *
 from shellcode import *
 from utils import *
@@ -6059,7 +6058,7 @@ class PEDACmd(object):
             open(filename, "wb").write(pattern)
             msg("Writing pattern of %d chars to filename \"%s\"" % (len(pattern), filename))
         else:
-            msg("'" + pattern.decode('utf-8') + "'")
+            msg(pattern.decode('utf-8'))
 
         return
 
@@ -6693,8 +6692,13 @@ class PEDACmd(object):
        	Usage:
             MYNAME
         """
-        value = peda.getreg("pc")
-	
+
+        (bits,arch) = peda.getarch()
+        if bits == 32 :
+            value = peda.getreg("pc")
+        else :
+            sp = peda.getreg("sp")
+            value = int(peda.execute_redirect("x/gx 0x%x" % sp).split(":")[1].strip(),16)
         if value is None:
             self._missing_argument()
 
@@ -6905,6 +6909,7 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 # custom hooks
 peda.define_user_command("hook-stop",
+    "peda clean_screen\n"
     "peda context\n"
     "session autosave"
     )
