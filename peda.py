@@ -6693,7 +6693,7 @@ class PEDACmd(object):
             MYNAME
         """
 
-        (bits,arch) = peda.getarch()
+        (arch,bits) = peda.getarch()
         if bits == 32 :
             value = peda.getreg("pc")
         else :
