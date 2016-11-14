@@ -16,6 +16,7 @@ PEDA - Python Exploit Development Assistance for GDB
 * Simple source code context
 * heap colorize
 * Syscall information in x86/x64
+* SROP information in x86/x64
 
 ## Key Features:
 * Enhance the display of gdb: colorize and display disassembly codes, registers, memory information during debugging.
@@ -51,3 +52,4 @@ PEDA - Python Exploit Development Assistance for GDB
 ![ARM64](http://i.imgur.com/iValQBY.png)
 ![source](http://i.imgur.com/SPBVT7q.png)
 ![syscall](http://i.imgur.com/AU0jixi.png)
+![srop](http://i.imgur.com/l6F6k1N.png)
