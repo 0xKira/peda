@@ -4356,9 +4356,35 @@ class PEDACmd(object):
                     text += blue(content,"light") + " = " + hex(value) + ","
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
-            text = text[:-1] + yellow(")","light")
-            msg(yellow(text,"light"))
-            msg(text2.strip())
+            if text[-1] is not '(':
+                text = text[:-1] + yellow(")","light")
+                msg(yellow(text,"light"))
+                msg(text2.strip())
+            else :
+                text = text +  yellow(")","light") 
+                msg(yellow(text,"light"))
+            if nr == 0x77 :
+                msg(yellow("%s" % " SROP info ".center(78, "─"),"light"))
+                step = peda.intsize()
+                sp = peda.getreg("sp")
+                sigcontext_value = []
+                sigcontext = ["gs","fs","es","ds","edi","esi","ebp","esp","ebx","edx","ecx","eax","trapno","err","eip","cs","eflags","esp_at_signal","ss","fpstate","oldmask","cr2"]
+                for i in range(len(sigcontext)):
+                    sigcontext_value.append(peda.examine_mem_value(sp+i*step)[2])
+                context = dict(zip(sigcontext,sigcontext_value))
+                text = ""
+                i = 0
+                concern = ["eax","ebx","ecx","edx","esi","edi","eip","esp","ebp"]
+                for key,value in context.items():
+                    if key in concern :
+                        text += (yellow(("%14s" % key + ":"),"light") + blue(value))
+                    else :
+                        text += (green(("%14s" % key + ":"),"light") + blue(value))
+                    i += 1
+                    if i % 3 == 0  :
+                        text += "\n"
+                msg(text)
+                     
         except :
             msg(red("Syscall not fround !!"))
     
@@ -4403,9 +4429,36 @@ class PEDACmd(object):
                     text += blue(content,"light") + " = " + hex(value) + ","
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
-            text = text[:-1] + yellow(")","light")
-            msg(yellow(text,"light"))
-            msg(text2.strip())
+            if text[-1] is not '(':
+                text = text[:-1] + yellow(")","light")
+                msg(yellow(text,"light"))
+                msg(text2.strip())
+            else :
+                text = text +  yellow(")","light") 
+                msg(yellow(text,"light"))
+            
+            if nr == 0xf :
+                msg(yellow("%s" % " SROP info ".center(78, "─"),"light"))
+                step = peda.intsize()
+                sp = peda.getreg("sp")
+                sigcontext_value = []
+                sigcontext = ["uc_flags","uc_link","ss_sp","ss_flags","ss_size","r8","r9","r10","r11","r12","r13","r14","r15",
+                        "rdi","rsi","rbp","rbx","rdx","rax","rcx","rsp","rip","eflags","selector","err","trapno","oldmask","cr2"]
+                for i in range(len(sigcontext)):
+                    sigcontext_value.append(peda.examine_mem_value(sp+i*step)[2])
+                context = dict(zip(sigcontext,sigcontext_value))
+                text = ""
+                i = 0
+                concern = ["rax","rbx","rcx","rdx","rsi","rdi","rip","rsp","rbp"]
+                for key,value in context.items():
+                    if key in concern :
+                        text += (yellow(("%14s" % key + ":"),"light") + blue(value))
+                    else :
+                        text += (green(("%14s" % key + ":"),"light") + blue(value))
+                    i += 1
+                    if i % 2 == 0  :
+                        text += "\n"
+                msg(text)
         except :
             msg(red("Syscall not fround !!"))
 
