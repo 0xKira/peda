@@ -6747,11 +6747,16 @@ class PEDACmd(object):
         """
 
         (arch,bits) = peda.getarch()
-        if bits == 32 :
-            value = peda.getreg("pc")
+        pc = peda.getreg("pc")
+        if peda.is_address(pc):
+            inst = peda.get_disasm(pc)
         else :
-            sp = peda.getreg("sp")
-            value = int(peda.execute_redirect("x/gx 0x%x" % sp).split(":")[1].strip(),16)
+            inst = None
+        value = peda.getreg("pc")
+        if inst :
+            if "ret" in inst :
+                sp = peda.getreg("sp")
+                value = int(peda.execute_redirect("x/wx 0x%x" % sp).split(":")[1].strip(),16)
         if value is None:
             self._missing_argument()
 
