@@ -910,7 +910,6 @@ class PEDA(object):
         # check if address is reachable
         if not self.execute_redirect("x/x 0x%x" % pc):
             return None
-
         prev_code = self.prev_inst(pc, count//2-1)
         if prev_code:
             start = prev_code[0][0]
@@ -3474,6 +3473,7 @@ class PEDACmd(object):
     def __init__(self):
         # list of all available commands
         self.commands = [c for c in dir(self) if callable(getattr(self, c)) and not c.startswith("_")]
+        self.mode = 0
 
     ##################
     #   Misc Utils   #
@@ -4872,6 +4872,7 @@ class PEDACmd(object):
             return
 
         pc = peda.getreg("pc")
+        self.corrunt_line = pc
         if peda.is_address(pc):
             inst = peda.get_disasm(pc)
         else:
@@ -5013,6 +5014,318 @@ class PEDACmd(object):
         return
 
     @msg.bufferize
+    def context_code_up(self, *arg):
+        """
+        Display nearby disassembly at $PC of current execution context up
+        Usage:
+            MYNAME [linecount]
+        """
+        (count,) = normalize_argv(arg, 1)
+
+        if count is None:
+            count = 8
+
+        if not self._is_running():
+            return
+        
+        pc = peda.prev_inst(self.corrunt_line)[0][0]
+        self.corrunt_line = pc
+        if peda.is_address(pc):
+            inst = peda.get_disasm(pc)
+        else:
+            inst = None
+        (arch,bits) = peda.getarch()
+        
+        if inst :
+            m = re.compile(r"\[.*\]")
+            m = m.findall(inst)
+        text = yellow("%s" % " Code ".center(78, "─"),"light")
+        msg(text)
+        if inst: # valid $PC
+            text = ""
+            opcode = inst.split(":\t")[-1].split()[0]
+            # stopped at function call
+            if "aarch64" in arch or "arm" in arch:
+                text += peda.disassemble_around(pc, count)
+                if armplt is not None and "arm" in arch :
+                    if len(armplt) == 0 :
+                        peda.elfsymbols()
+                    if armplt is not None :
+                        for (k,v) in armplt.items():
+                            if hex(v) in text :
+                                text = text.replace(hex(v),hex(v) + " <" + k + ">")
+                else :
+                    pass
+                if  opcode == "bl"  or opcode == "blx" or opcode == "blr":
+                    msg(format_disasm_code(text, pc))
+                    self.dumpargs()
+                elif len(m) > 0:
+                    msg(format_disasm_code(text, pc))
+                    exp = (m[0][1:-1]).replace(",","+").replace("#","")
+                    if "pc" in exp :
+                        exp += "+8"
+                    val = peda.parse_and_eval(exp)
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
+                elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")) :
+                    text = ""
+                    if "aarch64" in arch :
+                        jumpto = peda.aarch64_testjump(inst)
+                    else :
+                        jumpto = peda.arm_testjump(inst)
+                    if jumpto : #jump is token
+                        code = peda.disassemble_around(pc, count)
+                        code = code.splitlines()
+                        pc_idx = 999
+                        for (idx, line) in enumerate(code):
+                            if ("0x%x" % pc) in line.split(":")[0]:
+                                pc_idx = idx
+                            if idx <= pc_idx:
+                                text += line + "\n"
+                            else:
+                                text += " | %s\n" % line.strip()
+                        text = format_disasm_code(text, pc) + "\n"
+                        text += " |->"
+                        code = peda.get_disasm(jumpto, count//2)
+                        if not code:
+                            code = "   Cannot evaluate jump destination\n"
+
+                        code = code.splitlines()
+                        text += red(code[0]) + "\n"
+                        for line in code[1:]:
+                            text += "       %s\n" % line.strip()
+                        text += red("JUMP is taken".rjust(79))
+                    else :
+                        text += format_disasm_code(peda.disassemble_around(pc, count), pc)
+                        text += "\n" + green("jump is not taken".rjust(79))
+                    msg(text.rstrip())
+                else :
+                    msg(format_disasm_code(text, pc))  
+            elif "powerpc" in arch :
+                text += peda.disassemble_around(pc, count)
+                msg(format_disasm_code(text, pc))
+                if "bl" in opcode :
+                    self.dumpargs()
+            else :
+                if "syscall" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x64()
+                elif "call" in opcode:
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpargs()
+                elif "int" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x86()
+                elif len(m) > 0 :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    exp = m[0][1:-1]
+                    if "rip" in exp :
+                        nextins = peda.next_inst(pc)
+                        nextaddr = nextins[0][0]
+                        inssize = nextaddr - pc
+                        exp += "+" + str(inssize)
+                    val = peda.parse_and_eval(exp).split()[0]
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
+            # stopped at jump
+                elif "j" in opcode or "ret" in opcode:
+                    jumpto = peda.testjump(inst)
+                    if jumpto: # JUMP is taken
+                        code = peda.disassemble_around(pc, count)
+                        code = code.splitlines()
+                        pc_idx = 999
+                        for (idx, line) in enumerate(code):
+                            if ("0x%x" % pc) in line.split(":")[0]:
+                                pc_idx = idx
+                            if idx <= pc_idx:
+                                text += line + "\n"
+                            else:
+                                text += " | %s\n" % line.strip()
+                        text = format_disasm_code(text, pc) + "\n"
+                        text += " |->"
+                        code = peda.get_disasm(jumpto, count//2)
+                        if not code:
+                            code = "   Cannot evaluate jump destination\n"
+
+                        code = code.splitlines()
+                        text += red(code[0]) + "\n"
+                        for line in code[1:]:
+                            text += "       %s\n" % line.strip()
+                        text += red("JUMP is taken".rjust(79))
+                    else: # JUMP is NOT taken
+                        text += format_disasm_code(peda.disassemble_around(pc, count), pc)
+                        text += "\n" + green("JUMP is NOT taken".rjust(79))
+
+                    msg(text.rstrip())
+            # stopped at other instructions
+                else:
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+        else: # invalid $PC
+            msg("Invalid $PC address: 0x%x" % pc, "red")
+
+        return
+
+    def context_code_down(self, *arg):
+        """
+        Display nearby disassembly at $PC of current execution context up
+        Usage:
+            MYNAME [linecount]
+        """
+        (count,) = normalize_argv(arg, 1)
+
+        if count is None:
+            count = 8
+
+        if not self._is_running():
+            return
+        
+        pc = peda.next_inst(self.corrunt_line)[0][0]
+        self.corrunt_line = pc
+        if peda.is_address(pc):
+            inst = peda.get_disasm(pc)
+        else:
+            inst = None
+        (arch,bits) = peda.getarch()
+        
+        if inst :
+            m = re.compile(r"\[.*\]")
+            m = m.findall(inst)
+        text = yellow("%s" % " Code ".center(78, "─"),"light")
+        msg(text)
+        if inst: # valid $PC
+            text = ""
+            opcode = inst.split(":\t")[-1].split()[0]
+            # stopped at function call
+            if "aarch64" in arch or "arm" in arch:
+                text += peda.disassemble_around(pc, count)
+                if armplt is not None and "arm" in arch :
+                    if len(armplt) == 0 :
+                        peda.elfsymbols()
+                    if armplt is not None :
+                        for (k,v) in armplt.items():
+                            if hex(v) in text :
+                                text = text.replace(hex(v),hex(v) + " <" + k + ">")
+                else :
+                    pass
+                if  opcode == "bl"  or opcode == "blx" or opcode == "blr":
+                    msg(format_disasm_code(text, pc))
+                    self.dumpargs()
+                elif len(m) > 0:
+                    msg(format_disasm_code(text, pc))
+                    exp = (m[0][1:-1]).replace(",","+").replace("#","")
+                    if "pc" in exp :
+                        exp += "+8"
+                    val = peda.parse_and_eval(exp)
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
+                elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")) :
+                    text = ""
+                    if "aarch64" in arch :
+                        jumpto = peda.aarch64_testjump(inst)
+                    else :
+                        jumpto = peda.arm_testjump(inst)
+                    if jumpto : #jump is token
+                        code = peda.disassemble_around(pc, count)
+                        code = code.splitlines()
+                        pc_idx = 999
+                        for (idx, line) in enumerate(code):
+                            if ("0x%x" % pc) in line.split(":")[0]:
+                                pc_idx = idx
+                            if idx <= pc_idx:
+                                text += line + "\n"
+                            else:
+                                text += " | %s\n" % line.strip()
+                        text = format_disasm_code(text, pc) + "\n"
+                        text += " |->"
+                        code = peda.get_disasm(jumpto, count//2)
+                        if not code:
+                            code = "   Cannot evaluate jump destination\n"
+
+                        code = code.splitlines()
+                        text += red(code[0]) + "\n"
+                        for line in code[1:]:
+                            text += "       %s\n" % line.strip()
+                        text += red("JUMP is taken".rjust(79))
+                    else :
+                        text += format_disasm_code(peda.disassemble_around(pc, count), pc)
+                        text += "\n" + green("jump is not taken".rjust(79))
+                    msg(text.rstrip())
+                else :
+                    msg(format_disasm_code(text, pc))  
+            elif "powerpc" in arch :
+                text += peda.disassemble_around(pc, count)
+                msg(format_disasm_code(text, pc))
+                if "bl" in opcode :
+                    self.dumpargs()
+            else :
+                if "syscall" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x64()
+                elif "call" in opcode:
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpargs()
+                elif "int" in opcode :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    self.dumpsyscall_x86()
+                elif len(m) > 0 :
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+                    exp = m[0][1:-1]
+                    if "rip" in exp :
+                        nextins = peda.next_inst(pc)
+                        nextaddr = nextins[0][0]
+                        inssize = nextaddr - pc
+                        exp += "+" + str(inssize)
+                    val = peda.parse_and_eval(exp).split()[0]
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
+            # stopped at jump
+                elif "j" in opcode or "ret" in opcode:
+                    jumpto = peda.testjump(inst)
+                    if jumpto: # JUMP is taken
+                        code = peda.disassemble_around(pc, count)
+                        code = code.splitlines()
+                        pc_idx = 999
+                        for (idx, line) in enumerate(code):
+                            if ("0x%x" % pc) in line.split(":")[0]:
+                                pc_idx = idx
+                            if idx <= pc_idx:
+                                text += line + "\n"
+                            else:
+                                text += " | %s\n" % line.strip()
+                        text = format_disasm_code(text, pc) + "\n"
+                        text += " |->"
+                        code = peda.get_disasm(jumpto, count//2)
+                        if not code:
+                            code = "   Cannot evaluate jump destination\n"
+
+                        code = code.splitlines()
+                        text += red(code[0]) + "\n"
+                        for line in code[1:]:
+                            text += "       %s\n" % line.strip()
+                        text += red("JUMP is taken".rjust(79))
+                    else: # JUMP is NOT taken
+                        text += format_disasm_code(peda.disassemble_around(pc, count), pc)
+                        text += "\n" + green("JUMP is NOT taken".rjust(79))
+
+                    msg(text.rstrip())
+            # stopped at other instructions
+                else:
+                    text += peda.disassemble_around(pc, count)
+                    msg(format_disasm_code(text, pc))
+        else: # invalid $PC
+            msg("Invalid $PC address: 0x%x" % pc, "red")
+
+        return
+    @msg.bufferize
     def context_stack(self, *arg):
         """
         Display stack of current execution context
@@ -5081,7 +5394,7 @@ class PEDACmd(object):
         """
         (opt, count) = normalize_argv(arg, 2)
         if to_int(count) is None:
-            count = 8
+            count = config.Option.get("count")
         if opt is None:
             opt = config.Option.get("context")
         if opt == "all":
@@ -5129,6 +5442,92 @@ class PEDACmd(object):
 
         return
 
+    def contextup(self, *arg):
+        """
+        Display various information of current execution context
+        Usage:
+            MYNAME [reg,code,stack,all] [code/stack length]
+        """
+        (opt, count) = normalize_argv(arg, 2)
+        if to_int(count) is None:
+            count = config.Option.get("count")
+        if opt is None:
+            opt = config.Option.get("context")
+        if opt == "all":
+            opt = "source,register,code,stack"
+        
+        context_map = {"register":self.context_register,"code":self.context_code_up,
+                "stack":self.context_stack,"source":self.context_source}
+        opt = opt.replace(" ", "").split(",")
+
+        self.clean_screen()
+        if not opt:
+            return
+
+        if not self._is_running():
+            return
+        status = peda.get_status()
+        
+        for cont in opt:
+            context_map[cont](count)
+
+        if "SIGSEGV" in status  :
+            if "register" not in opt :
+                self.context_register()
+            if "stack" not in opt :
+                self.context_stack(count)
+
+        msg("%s" % ("─"*78), "yellow")
+        msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
+        # display stopped reason
+        if "SIG" in status:
+            msg("Stopped reason: %s" % red(status))
+
+        return
+
+    def contextdown(self, *arg):
+        """
+        Display various information of current execution context
+        Usage:
+            MYNAME [reg,code,stack,all] [code/stack length]
+        """
+        (opt, count) = normalize_argv(arg, 2)
+        if to_int(count) is None:
+            count = config.Option.get("count")
+        if opt is None:
+            opt = config.Option.get("context")
+        if opt == "all":
+            opt = "source,register,code,stack"
+        
+        self.clean_screen()
+        context_map = {"register":self.context_register,"code":self.context_code_down,
+                "stack":self.context_stack,"source":self.context_source}
+        opt = opt.replace(" ", "").split(",")
+
+        if not opt:
+            return
+
+        if not self._is_running():
+            return
+        status = peda.get_status()
+        
+        for cont in opt:
+            context_map[cont](count)
+
+        if "SIGSEGV" in status  :
+            if "register" not in opt :
+                self.context_register()
+            if "stack" not in opt :
+                self.context_stack(count)
+
+        msg("%s" % ("─"*78), "yellow")
+        msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
+        # display stopped reason
+        if "SIG" in status:
+            msg("Stopped reason: %s" % red(status))
+
+        return
+
     def clean_screen(self):
         """
         clean screen
@@ -5141,12 +5540,24 @@ class PEDACmd(object):
         Switch context layout
         """
         opt = config.Option.get("context")
-        if "code" in opt :
+        if self.mode == 0 :
             config.Option.set("context","register,source,stack")
+            self.mode = 1
+            self.clean_screen()
+            self.context()
+        elif self.mode == 1 :
+            config.Option.set("context","register,code")
+            config.Option.set("count",16)
+            self.mode = 2
+            self.clean_screen()
             self.context()
         else :
             config.Option.set("context","register,code,stack")
+            config.Option.set("count",8)
+            self.mode = 0
+            self.clean_screen()
             self.context()
+
 
 
     #################################
