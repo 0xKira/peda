@@ -2701,14 +2701,23 @@ class PEDA(object):
             if "arm" in arch :
                 result = subprocess.check_output("objdump -R " + procname +
                     "|grep R_ARM_JUMP_SLOT",shell=True )
-            else :
+            elif arch == "elf32-i386"  :
                 result = subprocess.check_output("objdump -R " + procname +
                     "|grep R_386_GLOB_DAT",shell=True )
+            else :
+                result = subprocess.check_output("objdump -R " + procname +
+                    "|grep R_X86_64_GLOB_DAT",shell=True )
             result = result.decode('utf8')
             for element in result.split('\n')[:-1]:
                 data = element.split()[2]
                 if "@GLIBC_2.0" in data :
                     data = data.strip("@GLIBC_2.0")
+                if "@GLIBC_2.2.5" in data :
+                    data = data.strip("@GLIBC_2.2.5")
+                if "@GLIBC_2.14" in data :
+                    data = data.strip("@GLIBC_2.14")
+                if "@GLIBC_2.4" in data :
+                    data = data.strip("@GLIBC_2.4")
                 gotplt.append(data + "@plt")
             return gotplt
 
