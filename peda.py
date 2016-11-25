@@ -66,6 +66,7 @@ REGISTERS = {
 }
 
 armplt = {}
+noplt = {}
 diff_regs = {}
 
 ###########################################################################
@@ -804,6 +805,13 @@ class PEDA(object):
         else:
             code = out
         (arch,bits) = self.getarch()
+        protection = peda.checksec()
+        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
+            if len(noplt) == 0 :
+                peda.elfsymbols()
+            for (k,v) in noplt.items():
+                if hex(v) in code :
+                    code = code.replace(hex(v),hex(v) + " <" + k + ">") 
         if "arm" in arch and armplt is not None :
             if len(armplt) == 0 :
                 peda.elfsymbols()
@@ -2687,54 +2695,80 @@ class PEDA(object):
         Returns:
             - dictionary of (address(Int), symname(String))
         """
-        def _getgotplt():
+        def _getgotplt(arch):
             gotplt = []
             procname = self.getfile()
-            result = subprocess.check_output("objdump -R " + procname +
-                "|grep R_ARM_JUMP_SLOT",shell=True )
+            if "arm" in arch :
+                result = subprocess.check_output("objdump -R " + procname +
+                    "|grep R_ARM_JUMP_SLOT",shell=True )
+            else :
+                result = subprocess.check_output("objdump -R " + procname +
+                    "|grep R_386_GLOB_DAT",shell=True )
             result = result.decode('utf8')
             for element in result.split('\n')[:-1]:
-                gotplt.append(element.split()[2] + "@plt")
+                data = element.split()[2]
+                if "@GLIBC_2.0" in data :
+                    data = data.strip("@GLIBC_2.0")
+                gotplt.append(data + "@plt")
             return gotplt
 
-        def _getplt():
+        def _getplt(arch):
             binmap = self.get_vmmap("binary")
             elfbase = binmap[0][0] if binmap else 0
             plt = {}
             temp = []
-            got_plt = ["plt0"] + _getgotplt()
+            got_plt = ["plt0"] + _getgotplt(arch)
             procname = self.getfile()
-            result = subprocess.check_output("objdump -d -j .plt " + procname +
-                "| grep -A 31337 .plt\>",shell=True).decode('utf8')
-            if "@plt" in result :
-                return None
-            pltentry = result.split('\n')[1:]
-            temp.append(int(pltentry[0].split(":")[0].strip(),16))
-            pltentry = pltentry[5:]
-            for i in range(int(len(pltentry)/3)):
-                temp.append(int(pltentry[i*3].split(":")[0].strip(),16) )
-            symbols = dict(zip(got_plt,temp))
-            for (k,v) in symbols.items():
-                if v < elfbase :
-                    symbols[k] = v + elfbase
-            return symbols
-  
-
-
+            if "arm" in arch :
+                got_plt = ["plt0"] + _getgotplt(arch)
+                result = subprocess.check_output("objdump -d -j .plt " + procname +
+                    "| grep -A 31337 .plt\>",shell=True).decode('utf8')
+                
+                if "@plt" in result :
+                    return None 
+                pltentry = result.split('\n')[1:]
+                temp.append(int(pltentry[0].split(":")[0].strip(),16))
+                pltentry = pltentry[5:]
+                for i in range(int(len(pltentry)/3)):
+                    temp.append(int(pltentry[i*3].split(":")[0].strip(),16) )
+                symbols = dict(zip(got_plt,temp))
+                for (k,v) in symbols.items():
+                    if v < elfbase :
+                        symbols[k] = v + elfbase
+                return symbols
+            else :
+                got_plt = _getgotplt(arch)
+                result = subprocess.check_output("objdump -d -j .plt.got " + procname +
+                    "| grep -A 31337 .plt.got\>",shell=True).decode('utf8')
+                pltentry = result.split("\n")[1:]
+                for i in range(int(len(pltentry)/2)):
+                    temp.append(int(pltentry[i*2].split(":")[0].strip(),16) )
+                symbols = dict(zip(got_plt,temp))
+                for (k,v) in symbols.items():
+                    if v < elfbase :
+                        symbols[k] = v + elfbase
+                return symbols
+                
 
         headers = self.elfheader()
         if ".plt" not in headers: # static binary
             return {}
-        
-        
         (arch,bits) = self.getarch()
         global armplt
         if "arm" in arch and armplt is not None :
             
             if len(armplt) == 0 :
-                armplt = _getplt()
+                armplt = _getplt(arch)
             if armplt is not None  :
                 return armplt
+
+        protection = peda.checksec()
+        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
+            global noplt
+            if len(noplt) == 0 :
+                noplt = _getplt(arch)
+            if noplt is not None :
+                return noplt
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
@@ -4865,6 +4899,19 @@ class PEDACmd(object):
         """
         (count,) = normalize_argv(arg, 1)
 
+        def recover_plt(text,arch):
+            protection = peda.checksec()
+            result = text
+            if noplt is not None and (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
+                if len(noplt) == 0 :
+                    peda.elfsymbols()
+                if noplt is not None :
+                    if noplt is not None :
+                        for (k,v) in noplt.items():
+                            if hex(v) in text :
+                                result = text.replace(hex(v),hex(v) + " <" + k + ">")
+            return result
+
         if count is None:
             count = 8
 
@@ -4952,18 +4999,22 @@ class PEDACmd(object):
             else :
                 if "syscall" in opcode :
                     text += peda.disassemble_around(pc, count)
+                    text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
                     self.dumpsyscall_x64()
                 elif "call" in opcode:
                     text += peda.disassemble_around(pc, count)
+                    text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
                     self.dumpargs()
                 elif "int" in opcode :
                     text += peda.disassemble_around(pc, count)
+                    text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
                     self.dumpsyscall_x86()
                 elif len(m) > 0 :
                     text += peda.disassemble_around(pc, count)
+                    text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
                     exp = m[0][1:-1]
                     if "rip" in exp :
@@ -5007,6 +5058,7 @@ class PEDACmd(object):
             # stopped at other instructions
                 else:
                     text += peda.disassemble_around(pc, count)
+                    text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
         else: # invalid $PC
             msg("Invalid $PC address: 0x%x" % pc, "red")
