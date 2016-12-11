@@ -2772,12 +2772,7 @@ class PEDA(object):
                 return armplt
 
         protection = peda.checksec()
-        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
-            global noplt
-            if len(noplt) == 0 :
-                noplt = _getplt(arch)
-            if noplt is not None :
-                return noplt
+        
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
@@ -2814,7 +2809,15 @@ class PEDA(object):
                     if symname not in symbols:
                         symbols[symname] = addr
                         break
-
+        
+        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64") and len(symbols) == 0:
+            global noplt
+            if len(noplt) == 0 :
+                noplt = _getplt(arch)
+            if noplt is not None :
+                return noplt
+    
+        
         # if PIE binary, update with runtime address
         for (k, v) in symbols.items():
             if v < elfbase:
