@@ -47,7 +47,7 @@ PEDA - Python Exploit Development Assistance for GDB
 
     git clone https://github.com/scwuaptx/peda.git ~/peda
     echo "source ~/peda/peda.py" >> ~/.gdbinit
-	cp ~/peda/.inpurc ~/
+    cp ~/peda/.inputrc ~/
     echo "DONE! debug your program with gdb and enjoy"
 
 ## Screenshot
