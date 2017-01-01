@@ -22,6 +22,8 @@ import functools
 from subprocess import *
 import config
 import codecs
+import termios
+import fcntl
 
 import six
 from six import StringIO
@@ -248,6 +250,16 @@ def trim(docstring):
         trimmed.pop(0)
     # Return a single string:
     return '\n'.join(trimmed)
+
+def separator(title = ""):
+    """
+    Return separator line with title
+    """
+    try:
+        _height, width = struct.unpack('hh', fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, '1234'))
+    except:
+        width = 78
+    return title.center(width, "─")
 
 def pager(text, pagesize=None):
     """

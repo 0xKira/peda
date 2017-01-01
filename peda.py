@@ -4392,7 +4392,7 @@ class PEDACmd(object):
             name = syscall[str(nr)]
             arg = syscalltab[name]
             
-            msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
+            msg(yellow(separator(" System call info "),"light"))
             text = ""
             text2 = ""
             text += name + "("
@@ -4411,7 +4411,7 @@ class PEDACmd(object):
                 text = text +  yellow(")","light") 
                 msg(yellow(text,"light"))
             if nr == 0x77 :
-                msg(yellow("%s" % " SROP info ".center(78, "─"),"light"))
+                msg(yellow(separator(" SROP info "),"light"))
                 step = peda.intsize()
                 sp = peda.getreg("sp")
                 sigcontext_value = []
@@ -4465,7 +4465,7 @@ class PEDACmd(object):
             name = syscall[str(nr)]
             arg = syscalltab[name]
             
-            msg(yellow("%s" % " System call info ".center(78, "─"),"light"))
+            msg(yellow(seperator(" System call info "),"light"))
             text = ""
             text2 = ""
             text += name + "("
@@ -4485,7 +4485,7 @@ class PEDACmd(object):
                 msg(yellow(text,"light"))
             
             if nr == 0xf :
-                msg(yellow("%s" % " SROP info ".center(78, "─"),"light"))
+                msg(yellow(seperator(" SROP info "),"light"))
                 step = peda.intsize()
                 sp = peda.getreg("sp")
                 sigcontext_value = []
@@ -4898,7 +4898,8 @@ class PEDACmd(object):
 
         pc = peda.getreg("pc")
         # display register info
-        msg(yellow("%s" % " Registers ".center(78, "─"),"light"))
+        msg(yellow(separator(" Registers "),"light"))
+
         self.xinfo("register")
 
         return
@@ -4942,7 +4943,7 @@ class PEDACmd(object):
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
-        text = yellow("%s" % " Code ".center(78, "─"),"light")
+        text = yellow(separator(" Code "),"light")
         msg(text)
         if inst: # valid $PC
             text = ""
@@ -5104,7 +5105,7 @@ class PEDACmd(object):
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
-        text = yellow("%s" % " Code ".center(78, "─"),"light")
+        text = yellow(separator(" Code "),"light")
         msg(text)
         if inst: # valid $PC
             text = ""
@@ -5141,7 +5142,7 @@ class PEDACmd(object):
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
-        text = yellow("%s" % " Code ".center(78, "─"),"light")
+        text = yellow(separator(" Code "),"light")
         msg(text)
         if inst: # valid $PC
             text = ""
@@ -5164,7 +5165,7 @@ class PEDACmd(object):
         if not self._is_running():
             return
 
-        text = yellow("%s" % " Stack ".center(78, "─"),"light")
+        text = yellow(separator(" Stack "),"light")
         msg(text)
         sp = peda.getreg("sp")
         if peda.is_address(sp):
@@ -5198,7 +5199,7 @@ class PEDACmd(object):
         #    msg("Cannot display %s" % filename)
             return
 
-        msg(yellow("%s" % " Source ".center(78, "─"),"light"))
+        msg(yellow(separator(" Source "),"light"))
         
         start = max(cur_line -  count//2 ,0)
         end = min(cur_line + count//2 ,len(self.source_lines))
@@ -5260,7 +5261,7 @@ class PEDACmd(object):
         # display stack content, forced in case SIGSEGV
 #        if "stack" in opt or "SIGSEGV" in status:
 #            self.context_stack(count)
-        msg("%s" % ("─"*78), "yellow")
+        msg(separator(), "yellow")
         msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
 
         # display stopped reason
@@ -5304,7 +5305,7 @@ class PEDACmd(object):
             if "stack" not in opt :
                 self.context_stack(count)
 
-        msg("%s" % ("─"*78), "yellow")
+        msg(separator(), "yellow")
         msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
         # display stopped reason
         if "SIG" in status:
@@ -5347,7 +5348,7 @@ class PEDACmd(object):
             if "stack" not in opt :
                 self.context_stack(count)
 
-        msg("%s" % ("─"*78), "yellow")
+        msg(separator(), "yellow")
         msg("Legend: %s, %s, %s, %s, value" % (red("code"), blue("data"), green("rodata"), purple("heap")))
         # display stopped reason
         if "SIG" in status:
