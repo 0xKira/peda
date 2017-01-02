@@ -4465,7 +4465,7 @@ class PEDACmd(object):
             name = syscall[str(nr)]
             arg = syscalltab[name]
             
-            msg(yellow(seperator(" System call info "),"light"))
+            msg(yellow(separator(" System call info "),"light"))
             text = ""
             text2 = ""
             text += name + "("
@@ -4485,7 +4485,7 @@ class PEDACmd(object):
                 msg(yellow(text,"light"))
             
             if nr == 0xf :
-                msg(yellow(seperator(" SROP info "),"light"))
+                msg(yellow(separator(" SROP info "),"light"))
                 step = peda.intsize()
                 sp = peda.getreg("sp")
                 sigcontext_value = []
