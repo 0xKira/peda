@@ -4941,7 +4941,7 @@ class PEDACmd(object):
         (arch,bits) = peda.getarch()
         
         if inst :
-            m = re.compile(r"\[.*\]")
+            m = re.compile(r"\[[\S]*\]")
             m = m.findall(inst)
         text = yellow(separator(" Code "),"light")
         msg(text)
