@@ -2711,6 +2711,8 @@ class PEDA(object):
             result = result.decode('utf8')
             for element in result.split('\n')[:-1]:
                 data = element.split()[2]
+                if "stdout" in data or "registerTMCloneTable" in data or "RegisterClasse" in data or "stdin" in data:
+                    continue
                 if "@GLIBC_2.0" in data :
                     data = data.strip("@GLIBC_2.0")
                 if "@GLIBC_2.2.5" in data :
@@ -4920,10 +4922,9 @@ class PEDACmd(object):
                 if len(noplt) == 0 :
                     peda.elfsymbols()
                 if noplt is not None :
-                    if noplt is not None :
-                        for (k,v) in noplt.items():
-                            if hex(v) in text :
-                                result = text.replace(hex(v),hex(v) + " <" + k + ">")
+                    for (k,v) in noplt.items():
+                        if hex(v) in text :
+                            result = text.replace(hex(v),hex(v) + " <" + k + ">")
             return result
 
         if count is None:
