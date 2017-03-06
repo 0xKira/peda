@@ -2562,6 +2562,8 @@ class PEDA(object):
         (v, t, vn) = self.examine_mem_value(value)
         while vn is not None:
             result += [(v, t, vn)]
+            if len(result) > 5 :
+                break
             if v == vn or to_int(v) == to_int(vn): # point to self
                 break
             if to_int(vn) is None:
