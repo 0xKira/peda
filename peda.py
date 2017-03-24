@@ -51,7 +51,7 @@ else:
     from urllib import urlopen
     from urllib import urlencode
     pyversion = 2
-	
+
 REGISTERS = {
     8 : ["al", "ah", "bl", "bh", "cl", "ch", "dl", "dh"],
     16: ["ax", "bx", "cx", "dx"],
@@ -1480,7 +1480,7 @@ class PEDA(object):
         Evaluate target address of an instruction, used for jumpto decision
 
         Args:
-            - inst: AMS instruction text (String)
+            - inst: ASM instruction text (String)
 
         Returns:
             - target address (Int)
@@ -1501,10 +1501,11 @@ class PEDA(object):
             p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*(0x[^ ]*)")
             m = p.search(inst)
             if not m:
-                p = re.compile(".*?:\s.*(0x[^ ]*)")
+                p = re.compile(".*?:\s.*\s(0x[^ ]*|\w+)")
                 m = p.search(inst)
                 if m:
                     target = m.group(1)
+                    target = self.parse_and_eval(target)
                 else:
                     target = None
             else:
@@ -5014,36 +5015,8 @@ class PEDACmd(object):
                 if "bl" in opcode :
                     self.dumpargs()
             else :
-                if "syscall" in opcode :
-                    text += peda.disassemble_around(pc, count)
-                    text = recover_plt(text,arch)
-                    msg(format_disasm_code(text, pc))
-                    self.dumpsyscall_x64()
-                elif "call" in opcode:
-                    text += peda.disassemble_around(pc, count)
-                    text = recover_plt(text,arch)
-                    msg(format_disasm_code(text, pc))
-                    self.dumpargs()
-                elif "int" in opcode :
-                    text += peda.disassemble_around(pc, count)
-                    text = recover_plt(text,arch)
-                    msg(format_disasm_code(text, pc))
-                    self.dumpsyscall_x86()
-                elif len(m) > 0 :
-                    text += peda.disassemble_around(pc, count)
-                    text = recover_plt(text,arch)
-                    msg(format_disasm_code(text, pc))
-                    exp = m[0][1:-1]
-                    if "rip" in exp :
-                        nextins = peda.next_inst(pc)
-                        nextaddr = nextins[0][0]
-                        inssize = nextaddr - pc
-                        exp += "+" + str(inssize)
-                    val = peda.parse_and_eval(exp).split()[0]
-                    chain = peda.examine_mem_reference(to_int(val))
-                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
-            # stopped at jump
-                elif "j" in opcode or "ret" in opcode:
+                # stopped at jump
+                if "j" in opcode or "ret" in opcode:
                     jumpto = peda.testjump(inst)
                     if jumpto: # JUMP is taken
                         code = peda.disassemble_around(pc, count)
@@ -5072,11 +5045,29 @@ class PEDACmd(object):
                         text += "\n" + green("JUMP is NOT taken".rjust(79))
 
                     msg(text.rstrip())
-            # stopped at other instructions
+                # stopped at other instructions
                 else:
                     text += peda.disassemble_around(pc, count)
                     text = recover_plt(text,arch)
                     msg(format_disasm_code(text, pc))
+
+                    if "syscall" in opcode :
+                        self.dumpsyscall_x64()
+                    elif "call" in opcode :
+                        self.dumpargs()
+                    elif "int" in opcode :
+                        self.dumpsyscall_x86()
+
+                    if m :
+                        exp = m[0][1:-1]
+                        if "rip" in exp :
+                            nextins = peda.next_inst(pc)
+                            nextaddr = nextins[0][0]
+                            inssize = nextaddr - pc
+                            exp += "+" + str(inssize)
+                        val = peda.parse_and_eval(exp).split()[0]
+                        chain = peda.examine_mem_reference(to_int(val))
+                        msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
         else: # invalid $PC
             msg("Invalid $PC address: 0x%x" % pc, "red")
 
@@ -6750,7 +6741,7 @@ class PEDACmd(object):
             MYNAME generate [arch/]platform type [port] [host]
             MYNAME search keyword (use % for any character wildcard)
             MYNAME display shellcodeId (shellcodeId as appears in search results)
-	    MYNAME zsc [generate customize shellcode] 
+            MYNAME zsc [generate customize shellcode] 
 
             For generate option:
                 default port for bindport shellcode: 16706 (0x4142)
@@ -6833,7 +6824,7 @@ class PEDACmd(object):
                 return
 
             msg(res)
-	#OWASP ZSC API Z3r0D4y.Com
+        #OWASP ZSC API Z3r0D4y.Com
         elif mode == "zsc":
             'os lists'
             oslist = ['linux_x86','linux_x64','linux_arm','linux_mips','freebsd_x86',
@@ -6984,7 +6975,7 @@ class PEDACmd(object):
     def crashoff(self, *arg):
         """
         Display crash offset when use pattern_create
-       	Usage:
+        Usage:
             MYNAME
         """
 
