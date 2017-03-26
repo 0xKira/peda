@@ -5732,7 +5732,7 @@ class PEDACmd(object):
             text += "\n"
             idx += step
 
-        pager(text)
+        pager(text[:-1])
 
         return
 
