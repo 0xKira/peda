@@ -4991,9 +4991,9 @@ class PEDACmd(object):
                             if idx <= pc_idx:
                                 text += line + "\n"
                             else:
-                                text += " | %s\n" % line.strip()
+                                text += " │ %s\n" % line.strip()
                         text = format_disasm_code(text, pc) + "\n"
-                        text += " |->"
+                        text += " └─>"
                         code = peda.get_disasm(jumpto, count//2)
                         if not code:
                             code = "   Cannot evaluate jump destination\n"
@@ -5002,7 +5002,8 @@ class PEDACmd(object):
                         text += red(code[0]) + "\n"
                         for line in code[1:]:
                             text += "       %s\n" % line.strip()
-                        text += red("JUMP is taken".rjust(79))
+                        if "ret" not in opcode:
+                            text += red("JUMP is taken".rjust(79))
                     else :
                         text += format_disasm_code(peda.disassemble_around(pc, count), pc)
                         text += "\n" + green("jump is not taken".rjust(79))
@@ -5028,9 +5029,9 @@ class PEDACmd(object):
                             if idx <= pc_idx:
                                 text += line + "\n"
                             else:
-                                text += " | %s\n" % line.strip()
+                                text += " │ %s\n" % line.strip()
                         text = format_disasm_code(text, pc) + "\n"
-                        text += " |->"
+                        text += " └─>"
                         code = peda.get_disasm(jumpto, count//2)
                         if not code:
                             code = "   Cannot evaluate jump destination\n"
@@ -5039,7 +5040,8 @@ class PEDACmd(object):
                         text += red(code[0]) + "\n"
                         for line in code[1:]:
                             text += "       %s\n" % line.strip()
-                        text += red("JUMP is taken".rjust(79))
+                        if "ret" not in opcode:
+                            text += red("JUMP is taken".rjust(79))
                     else: # JUMP is NOT taken
                         text += format_disasm_code(peda.disassemble_around(pc, count), pc)
                         text += "\n" + green("JUMP is NOT taken".rjust(79))
