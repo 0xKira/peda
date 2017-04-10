@@ -5232,6 +5232,9 @@ class PEDACmd(object):
 
         if not self._is_running():
             return
+
+        self.clean_screen()
+
         status = peda.get_status()
         
         for cont in opt:
@@ -7201,7 +7204,6 @@ signal.signal(signal.SIGINT, sigint_handler)
 
 # custom hooks
 peda.define_user_command("hook-stop",
-    "peda clean_screen\n"
     "peda context\n"
     "session autosave"
     )
