@@ -5060,18 +5060,18 @@ class PEDACmd(object):
                 elif "int" in opcode :
                     self.dumpsyscall_x86()
 
-                if m :
-                    exp = m[0][1:-1]
-                    if "rip" in exp :
-                        nextins = peda.next_inst(pc)
-                        nextaddr = nextins[0][0]
-                        inssize = nextaddr - pc
-                        exp += "+" + str(inssize)
-                    val = peda.parse_and_eval(exp)
-                    if val is not None:
-                        val = val.split()[0]
-                        chain = peda.examine_mem_reference(to_int(val))
-                        msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
+            if m :
+                exp = m[0][1:-1]
+                if "rip" in exp :
+                    nextins = peda.next_inst(pc)
+                    nextaddr = nextins[0][0]
+                    inssize = nextaddr - pc
+                    exp += "+" + str(inssize)
+                val = peda.parse_and_eval(exp)
+                if val is not None:
+                    val = val.split()[0]
+                    chain = peda.examine_mem_reference(to_int(val))
+                    msg("%s : %s" % (purple(m[0],"light"),format_reference_chain(chain)))
         return
 
     @msg.bufferize
