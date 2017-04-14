@@ -269,7 +269,7 @@ def pager(text, pagesize=None):
         pagesize = config.Option.get("pagesize")
 
     if pagesize <= 0:
-        msg(text.strip())
+        msg(text.rstrip())
         return
 
     i = 1
