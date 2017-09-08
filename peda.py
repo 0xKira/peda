@@ -4446,7 +4446,7 @@ class PEDACmd(object):
         """
         syscall = {}
         syscalltab = {}
-        regslist = ["rdi","rsi","rdx","rcx","r8","r9"]
+        regslist = ["rdi","rsi","rdx","r10","r8","r9"]
         with open( os.path.dirname(PEDAFILE)+ '/data/x64syscall.csv',"r") as f:
             for row in csv.DictReader(f):
                 tmp = {}
@@ -4457,8 +4457,8 @@ class PEDACmd(object):
                     tmp['rsi'] = row['rsi']
                 if len(row['rdx']) > 0 :
                     tmp['rdx'] = row['rdx']
-                if len(row['rcx']) > 0 :
-                    tmp['rcx'] = row['rcx']
+                if len(row['r10']) > 0 :
+                    tmp['r10'] = row['r10']
                 if len(row['r8']) > 0 :
                     tmp['r8'] = row['r8']
                 if len(row['r9']) > 0 :
