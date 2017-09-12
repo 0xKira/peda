@@ -2702,6 +2702,7 @@ class PEDA(object):
         def _getgotplt(arch):
             gotplt = []
             procname = self.getfile()
+            remove_start = False
             if "arm" in arch :
                 result = subprocess.check_output("objdump -R " + procname +
                     "|grep R_ARM_JUMP_SLOT",shell=True )
@@ -2712,9 +2713,17 @@ class PEDA(object):
                 result = subprocess.check_output("objdump -R " + procname +
                     "|grep R_X86_64_GLOB_DAT",shell=True )
             result = result.decode('utf8')
+            try :
+                temp = subprocess.check_output("objdump -d " + procname + "| grep call.*GLOBAL_OFFSET_TABLE",shell=True).decode('utf8')
+                if len(temp) > 0 :
+                    remove_start = True
+            except :
+                pass
             for element in result.split('\n')[:-1]:
                 data = element.split()[2]
                 if "stdout" in data or "registerTMCloneTable" in data or "RegisterClasse" in data or "stdin" in data:
+                    continue
+                if ("__libc_start_main" in data or "__gmon_start__" in data) and remove_start  :
                     continue
                 if "@GLIBC_2.0" in data :
                     data = data.strip("@GLIBC_2.0")
