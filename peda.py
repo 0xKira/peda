@@ -7231,7 +7231,7 @@ Alias("pattc", "peda pattern_create")
 Alias("patta", "peda pattern_arg")
 Alias("patte", "peda pattern_env")
 Alias("patts", "peda pattern_search")
-Alias("find", "peda searchmem") # override gdb find command
+# Alias("find", "peda searchmem") # override gdb find command
 Alias("ftrace", "peda tracecall")
 Alias("itrace", "peda traceinst")
 Alias("jtrace", "peda traceinst j")
