@@ -1,2 +1,2 @@
-Control-w: "contextup\n"
-Control-e: "contextdown\n"
+Control-b: "contextup\n"
+Control-n: "contextdown\n"

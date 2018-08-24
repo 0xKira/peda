@@ -919,6 +919,7 @@ class PEDA(object):
         # check if address is reachable
         if not self.execute_redirect("x/x 0x%x" % pc):
             return None
+
         prev_code = self.prev_inst(pc, count//2-1)
         if prev_code:
             start = prev_code[0][0]
@@ -5367,7 +5368,8 @@ class PEDACmd(object):
         """
         clean screen
         """
-        msg("\x1b[H\x1b[J")
+        # msg("\x1b[H\x1b[J")
+        msg("\x1b[2J\x1b[H")    # origin peda style
         return
 
     def switch_context(self):
