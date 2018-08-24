@@ -61,7 +61,7 @@ REGISTERS = {
     "elf32-littlearm":["r0","r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12","sp","lr","pc"],
     "elf32-tradlittlemips":["a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","t8","t9",
          "s0","s1","s2","s3","s4","s6","s6","s7","gp","sp","s8","ra","pc"],
-    "elf32-powerpc":list(map(lambda x: "r%i" % x, range(32))) + ["pc","lr"], 
+    "elf32-powerpc":list(map(lambda x: "r%i" % x, range(32))) + ["pc","lr"],
     "elf64-littleaarch64": list(map(lambda x: "x%i" % x, range(31))) +  ["sp","pc"]
         + list(map(lambda x: "w%i" % x, range(31)))
 }
@@ -153,7 +153,7 @@ class PEDA(object):
         Returns:
             - value of expression
         """
-        
+
         (arch,bits) = peda.getarch()
         if "aarch64" in arch :
             regs = REGISTERS["elf64-littleaarch64"]
@@ -812,7 +812,7 @@ class PEDA(object):
                 peda.elfsymbols()
             for (k,v) in noplt.items():
                 if hex(v) in code :
-                    code = code.replace(hex(v),hex(v) + " <" + k + ">") 
+                    code = code.replace(hex(v),hex(v) + " <" + k + ">")
         if "arm" in arch and armplt is not None :
             if len(armplt) == 0 :
                 peda.elfsymbols()
@@ -1121,7 +1121,7 @@ class PEDA(object):
             else :
                 argc += m.count("w1")
         if argc > 1:
-            if m.count("x2") != 0 :  
+            if m.count("x2") != 0 :
                 argc += m.count("x2")
             else :
                 argc += m.count("w2")
@@ -1149,7 +1149,7 @@ class PEDA(object):
             args += [regs[arg_order[i]]]
 
         return args
-    
+
     def _get_function_args_ppc(self, code, argc=None):
         """
         Guess the number of arguments passed to a function - aarch64
@@ -1387,7 +1387,7 @@ class PEDA(object):
         CPSR_I = 1 << 7
         CPSR_F = 1 << 6
         CPSR_T = 1 << 5
-        
+
         flags = {"T":0,"F":0,"I":0,"A":0,"E":0,"GE":0,"J":0,"Q":0,"V":0,"C":0,"Z":0,"N":0}
         cpsr = self.getreg("cpsr")
         if cpsr is None :
@@ -1417,12 +1417,12 @@ class PEDA(object):
         CPSR_N = 1 << 0x1f
         CPSR_Z = 1 << 0x1e
         CPSR_C = 1 << 0x1d
-        CPSR_V = 1 << 0x1c 
+        CPSR_V = 1 << 0x1c
         CPSR_D = 1 << 9
         CPSR_A = 1 << 8
         CPSR_I = 1 << 7
         CPSR_F = 1 << 6
-        
+
         flags = {"F":0,"I":0,"A":0,"D":0,"V":0,"C":0,"Z":0,"N":0}
         cpsr = self.getreg("cpsr")
         if cpsr is None :
@@ -1538,7 +1538,7 @@ class PEDA(object):
         next_addr = self.eval_target(inst)
         if next_addr is None:
             next_addr = 0
-        
+
         if opcode == "ret":
             return next_addr
         if opcode == "jmp":
@@ -1598,7 +1598,7 @@ class PEDA(object):
             next_addr = 0
 
         if "ret" in opcode :
-            return next_addr 
+            return next_addr
         if opcode == "cbnz" :
             rn = inst.split(":\t")[-1].split()[1].strip(",")
             val = to_int(self.parse_and_eval(rn))
@@ -1610,7 +1610,7 @@ class PEDA(object):
             if val == 0 :
                 return next_addr
         if opcode == "b" :
-            return next_addr    
+            return next_addr
         if opcode == "b.eq" and flags["Z"]:
             return next_addr
         if opcode == "b.ne" and not flags["Z"]:
@@ -1676,7 +1676,7 @@ class PEDA(object):
             if val == 0 :
                 return next_addr
         if opcode == "b" :
-            return next_addr    
+            return next_addr
         if opcode.startswith("beq") and flags["Z"]:
             return next_addr
         if opcode.startswith("bne") and not flags["Z"]:
@@ -2747,9 +2747,9 @@ class PEDA(object):
                 got_plt = ["plt0"] + _getgotplt(arch)
                 result = subprocess.check_output("objdump -d -j .plt " + procname +
                     "| grep -A 31337 .plt\>",shell=True).decode('utf8')
-                
+
                 if "@plt" in result :
-                    return None 
+                    return None
                 pltentry = result.split('\n')[1:]
                 temp.append(int(pltentry[0].split(":")[0].strip(),16))
                 pltentry = pltentry[5:]
@@ -2772,7 +2772,7 @@ class PEDA(object):
                     if v < elfbase :
                         symbols[k] = v + elfbase
                 return symbols
-                
+
 
         headers = self.elfheader()
         if ".plt" not in headers: # static binary
@@ -2780,14 +2780,14 @@ class PEDA(object):
         (arch,bits) = self.getarch()
         global armplt
         if "arm" in arch and armplt is not None :
-            
+
             if len(armplt) == 0 :
                 armplt = _getplt(arch)
             if armplt is not None  :
                 return armplt
 
         protection = peda.checksec()
-        
+
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
@@ -2824,15 +2824,15 @@ class PEDA(object):
                     if symname not in symbols:
                         symbols[symname] = addr
                         break
-        
+
         if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64") and len(symbols) == 0:
             global noplt
             if len(noplt) == 0 :
                 noplt = _getplt(arch)
             if noplt is not None :
                 return noplt
-    
-        
+
+
         # if PIE binary, update with runtime address
         for (k, v) in symbols.items():
             if v < elfbase:
@@ -4405,7 +4405,7 @@ class PEDACmd(object):
         try :
             name = syscall[str(nr)]
             arg = syscalltab[name]
-            
+
             msg(yellow(separator(" System call info "),"light"))
             text = ""
             text2 = ""
@@ -4422,7 +4422,7 @@ class PEDACmd(object):
                 msg(yellow(text,"light"))
                 msg(text2.strip())
             else :
-                text = text +  yellow(")","light") 
+                text = text +  yellow(")","light")
                 msg(yellow(text,"light"))
             if nr == 0x77 :
                 msg(yellow(separator(" SROP info "),"light"))
@@ -4445,10 +4445,10 @@ class PEDACmd(object):
                     if i % 3 == 0  :
                         text += "\n"
                 msg(text)
-                     
+
         except :
             msg(red("Syscall not fround !!"))
-    
+
     def dumpsyscall_x64(self, *arg):
         """
         Display x86 syacall
@@ -4478,7 +4478,7 @@ class PEDACmd(object):
         try :
             name = syscall[str(nr)]
             arg = syscalltab[name]
-            
+
             msg(yellow(separator(" System call info "),"light"))
             text = ""
             text2 = ""
@@ -4495,9 +4495,9 @@ class PEDACmd(object):
                 msg(yellow(text,"light"))
                 msg(text2.strip())
             else :
-                text = text +  yellow(")","light") 
+                text = text +  yellow(")","light")
                 msg(yellow(text,"light"))
-            
+
             if nr == 0xf :
                 msg(yellow(separator(" SROP info "),"light"))
                 step = peda.intsize()
@@ -4956,7 +4956,7 @@ class PEDACmd(object):
             return
 
         (arch,bits) = peda.getarch()
-        
+
         text = ""
         opcode = inst.split(":\t")[-1].split()[0]
         m = re.compile(r"\[[\S]*\]")
@@ -5018,7 +5018,7 @@ class PEDACmd(object):
                     text += "\n" + green("jump is not taken".rjust(79))
                 msg(text.rstrip())
             else :
-                msg(format_disasm_code(text, pc))  
+                msg(format_disasm_code(text, pc))
         elif "powerpc" in arch :
             text += peda.disassemble_around(pc, count)
             msg(format_disasm_code(text, pc))
@@ -5097,7 +5097,7 @@ class PEDACmd(object):
 
         if not self._is_running():
             return
-        
+
         pc = peda.prev_inst(self.corrunt_line)[0][0]
         self.corrunt_line = pc
         if peda.is_address(pc):
@@ -5105,7 +5105,7 @@ class PEDACmd(object):
         else:
             inst = None
         (arch,bits) = peda.getarch()
-        
+
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
@@ -5134,7 +5134,7 @@ class PEDACmd(object):
 
         if not self._is_running():
             return
-        
+
         pc = peda.next_inst(self.corrunt_line)[0][0]
         self.corrunt_line = pc
         if peda.is_address(pc):
@@ -5142,7 +5142,7 @@ class PEDACmd(object):
         else:
             inst = None
         (arch,bits) = peda.getarch()
-        
+
         if inst :
             m = re.compile(r"\[.*\]")
             m = m.findall(inst)
@@ -5204,11 +5204,11 @@ class PEDACmd(object):
             return
 
         msg(yellow(separator(" Source "),"light"))
-        
+
         start = max(cur_line -  count//2 ,0)
         end = min(cur_line + count//2 ,len(self.source_lines))
         if (cur_line - start) < (count//2) :
-            end += (count//2) -  cur_line 
+            end += (count//2) -  cur_line
         if (end - cur_line) < (count//2):
             start -= count//2 - (end - cur_line)
         for number,line in enumerate(self.source_lines[start:end],start+1):
@@ -5216,7 +5216,7 @@ class PEDACmd(object):
                 msg(green("==> " + str(number) + " " + line.rstrip("\n"),"light"))
             else :
                 msg("    " + str(number)+ " " + line.rstrip("\n"))
-        return 
+        return
 
     def context(self, *arg):
         """
@@ -5231,7 +5231,7 @@ class PEDACmd(object):
             opt = config.Option.get("context")
         if opt == "all":
             opt = "source,register,code,stack"
-        
+
         context_map = {"register":self.context_register,"code":self.context_code,
                 "stack":self.context_stack,"source":self.context_source}
         opt = opt.replace(" ", "").split(",")
@@ -5245,7 +5245,7 @@ class PEDACmd(object):
         self.clean_screen()
 
         status = peda.get_status()
-        
+
         for cont in opt:
             context_map[cont](count)
 
@@ -5290,7 +5290,7 @@ class PEDACmd(object):
             opt = config.Option.get("context")
         if opt == "all":
             opt = "source,register,code,stack"
-        
+
         context_map = {"register":self.context_register,"code":self.context_code_up,
                 "stack":self.context_stack,"source":self.context_source}
         opt = opt.replace(" ", "").split(",")
@@ -5302,7 +5302,7 @@ class PEDACmd(object):
         if not self._is_running():
             return
         status = peda.get_status()
-        
+
         for cont in opt:
             context_map[cont](count)
 
@@ -5333,7 +5333,7 @@ class PEDACmd(object):
             opt = config.Option.get("context")
         if opt == "all":
             opt = "source,register,code,stack"
-        
+
         self.clean_screen()
         context_map = {"register":self.context_register,"code":self.context_code_down,
                 "stack":self.context_stack,"source":self.context_source}
@@ -5345,7 +5345,7 @@ class PEDACmd(object):
         if not self._is_running():
             return
         status = peda.get_status()
-        
+
         for cont in opt:
             context_map[cont](count)
 
@@ -5794,7 +5794,7 @@ class PEDACmd(object):
         FLAGS = ["T","F","I","GE","V","C","Z","N"]
         FLAGS_TEXT = ["Thumb","FIQ","IRQ","GE","Overflow","Carry","Zero","Negative"]
         (option,flagname) = normalize_argv(arg, 2)
-   
+
         if not self._is_running():
             return
 
@@ -5809,13 +5809,13 @@ class PEDACmd(object):
                     text += "%s " % red(FLAGS_TEXT[i].upper(), "bold")
                 else:
                     text += "%s " % green(FLAGS_TEXT[i].lower())
-            
+
             cpsr = peda.getreg("cpsr")
             msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
 
         return
     cpsr.options = ["set", "clear"]
-    
+
     def aarch64_cpsr(self,*arg):
         """
         Display value of cpsr register
@@ -5824,7 +5824,7 @@ class PEDACmd(object):
         FLAGS = ["F","I","A","D","V","C","Z","N"]
         FLAGS_TEXT = ["FIQ","IRQ","SError","Debug","Overflow","Carry","Zero","Negative"]
         (option,flagname) = normalize_argv(arg, 2)
-   
+
         if not self._is_running():
             return
 
@@ -5839,7 +5839,7 @@ class PEDACmd(object):
                     text += "%s " % red(FLAGS_TEXT[i].upper(), "bold")
                 else:
                     text += "%s " % green(FLAGS_TEXT[i].lower())
-            
+
             cpsr = peda.getreg("cpsr")
             msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
 
@@ -5912,7 +5912,7 @@ class PEDACmd(object):
                         self.aarch64_cpsr()
                     else:
                         pass
-            if intel : 
+            if intel :
                 if regname is None or "eflags" in regname:
                     self.eflags()
             return
@@ -6754,7 +6754,7 @@ class PEDACmd(object):
             MYNAME generate [arch/]platform type [port] [host]
             MYNAME search keyword (use % for any character wildcard)
             MYNAME display shellcodeId (shellcodeId as appears in search results)
-            MYNAME zsc [generate customize shellcode] 
+            MYNAME zsc [generate customize shellcode]
 
             For generate option:
                 default port for bindport shellcode: 16706 (0x4142)
@@ -6857,7 +6857,7 @@ class PEDACmd(object):
                         os = input('%s'%blue('os:'))
                     if pyversion is 3:
                         os = input('%s'%blue('os:'))
-                    if os in oslist: #check if os exist 
+                    if os in oslist: #check if os exist
                         break
                     else:
                         warning_msg("Wrong input! Try Again.")
@@ -7012,7 +7012,7 @@ class PEDACmd(object):
         else:
             msg("%s found at offset: %d" % (hex(value), pos))
 
-        return 
+        return
 
 
     def crashdump(self, *arg):
@@ -7243,7 +7243,7 @@ Alias("reg", "peda xinfo register")
 peda.execute("set confirm off")
 peda.execute("set verbose off")
 peda.execute("set output-radix 0x10")
-peda.execute("set prompt \001%s\002" % blue("\002gdb-peda$ \001","light")) # custom prompt
+peda.execute("set prompt \001%s\002" % red("\002gdb-peda$ \001","light")) # custom prompt
 peda.execute("set height 0") # disable paging
 peda.execute("set history expansion on")
 peda.execute("set history save on") # enable history saving
