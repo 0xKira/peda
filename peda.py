@@ -2763,11 +2763,18 @@ class PEDA(object):
                 return symbols
             else :
                 got_plt = _getgotplt(arch)
+
                 result = subprocess.check_output("objdump -d -j .plt.got " + procname +
-                    "| grep -A 31337 .plt.got\>",shell=True).decode('utf8')
-                pltentry = result.split("\n")[1:]
-                for i in range(int(len(pltentry)/2)):
-                    temp.append(int(pltentry[i*2].split(":")[0].strip(),16) )
+                    "| grep -A 31337 .plt.got",shell=True).decode('utf8')
+                pltentry = result.split("\n")[2:]
+                # objdump < 2.29
+                if '' not in pltentry:
+                    for i in range(int(len(pltentry)/2)):
+                        temp.append(int(pltentry[i*2].split(":")[0].strip(),16) )
+                # objdump >= 2.29
+                else:
+                    for i in range(int(len(pltentry)/4)):
+                        temp.append(int(pltentry[i*4 + 1].split(":")[0].strip(),16) )
                 symbols = dict(zip(got_plt,temp))
                 for (k,v) in symbols.items():
                     if v < elfbase :
