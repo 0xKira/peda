@@ -2764,8 +2764,11 @@ class PEDA(object):
             else :
                 got_plt = _getgotplt(arch)
 
-                result = subprocess.check_output("objdump -d -j .plt.got " + procname +
-                    "| grep -A 31337 .plt.got",shell=True).decode('utf8')
+                try:
+                    result = subprocess.check_output("objdump -d -j .plt.got " + procname +
+                        " 2>/dev/null | grep -A 31337 .plt.got",shell=True).decode('utf8')
+                except subprocess.CalledProcessError as e:
+                    return []
                 pltentry = result.split("\n")[2:]
                 # objdump < 2.29
                 if '' not in pltentry:
