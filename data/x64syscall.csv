@@ -1,4 +1,4 @@
-rax,syscall,rdi,rsi,rdx,rcx,r8,r9
+rax,syscall,rdi,rsi,rdx,r10,r8,r9
 0,read,unsigned int fd,char *buf,size_t count,,,
 1,write,unsigned int fd,const char *buf,size_t count,,,
 2,open,const char *filename,int flags,umode_t mode,,,

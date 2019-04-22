@@ -435,29 +435,11 @@ class PEDA(object):
             - pid (Int)
         """
 
-        out = None
         status = self.get_status()
         if not status or status == "STOPPED":
             return None
-
-        if self.is_target_remote(): # remote target
-            ctx = config.Option.get("context")
-            config.Option.set("context", None)
-            try:
-                out = self.execute_redirect("call getpid()")
-            except:
-                pass
-
-            config.Option.set("context", ctx)
-
-            if out is None:
-                return None
-            else:
-                out = self.execute_redirect("print $")
-                if out:
-                    return to_int(out.split("=")[1])
-                else:
-                    return None
+        if self.is_target_remote():  # remote target
+            return None
 
         pid = gdb.selected_inferior().pid
         return int(pid) if pid else None
@@ -4498,9 +4480,9 @@ class PEDACmd(object):
                 if key in arg :
                     value = peda.getreg(key)
                     content = arg[key]
-                    text += blue(content,"light") + " = " + hex(value) + ","
+                    text += blue(content,"light") + " = " + hex(value) + ", "
                     chain = peda.examine_mem_reference(value)
-                    text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
+                    text2 += "%s: %s\n" % (green(content,"light"),format_reference_chain(chain))
             if text[-1] is not '(':
                 text = text[:-1] + yellow(")","light")
                 msg(yellow(text,"light"))
