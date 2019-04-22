@@ -2557,9 +2557,7 @@ class PEDA(object):
                 break
 
             result += [(v, t, vn)]
-            if len(result) > 5 :
-                break
-            if v == vn or to_int(v) == to_int(vn): # point to self
+            if v == vn or to_int(v) == to_int(vn):  # point to self
                 break
             if to_int(vn) is None:
                 break
