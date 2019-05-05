@@ -4400,7 +4400,7 @@ class PEDACmd(object):
                 syscalltab[row['syscall']] = tmp
         f.close()
         nr = peda.getreg("eax")
-        try :
+        try:
             name = syscall[str(nr)]
             arg = syscalltab[name]
 
@@ -4408,21 +4408,21 @@ class PEDACmd(object):
             text = ""
             text2 = ""
             text += name + "("
-            for key in regslist :
-                if key in arg :
+            for key in regslist:
+                if key in arg:
                     value = peda.getreg(key)
                     content = arg[key]
-                    text += blue(content,"light") + " = " + hex(value) + ","
+                    text += blue(content,"light") + " = " + hex(value) + ", "
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s : %s\n" % (green(content,"light"),format_reference_chain(chain))
             if text[-1] is not '(':
-                text = text[:-1] + yellow(")","light")
+                text = text[:-2] + yellow(")","light")
                 msg(yellow(text,"light"))
                 msg(text2.strip())
-            else :
-                text = text +  yellow(")","light")
+            else:
+                text = text + yellow(")","light")
                 msg(yellow(text,"light"))
-            if nr == 0x77 :
+            if nr == 0x77:
                 msg(yellow(separator(" SROP info "),"light"))
                 step = peda.intsize()
                 sp = peda.getreg("sp")
@@ -4454,26 +4454,26 @@ class PEDACmd(object):
         syscall = {}
         syscalltab = {}
         regslist = ["rdi","rsi","rdx","r10","r8","r9"]
-        with open( os.path.dirname(PEDAFILE)+ '/data/x64syscall.csv',"r") as f:
+        with open( os.path.dirname(PEDAFILE) + '/data/x64syscall.csv',"r") as f:
             for row in csv.DictReader(f):
                 tmp = {}
                 syscall[row['rax']] = row['syscall']
-                if len(row['rdi']) > 0 :
+                if len(row['rdi']) > 0:
                     tmp['rdi'] = row['rdi']
-                if len(row['rsi']) > 0 :
+                if len(row['rsi']) > 0:
                     tmp['rsi'] = row['rsi']
-                if len(row['rdx']) > 0 :
+                if len(row['rdx']) > 0:
                     tmp['rdx'] = row['rdx']
-                if len(row['r10']) > 0 :
+                if len(row['r10']) > 0:
                     tmp['r10'] = row['r10']
-                if len(row['r8']) > 0 :
+                if len(row['r8']) > 0:
                     tmp['r8'] = row['r8']
-                if len(row['r9']) > 0 :
+                if len(row['r9']) > 0:
                     tmp['r9'] = row['r9']
                 syscalltab[row['syscall']] = tmp
         f.close()
         nr = peda.getreg("rax")
-        try :
+        try:
             name = syscall[str(nr)]
             arg = syscalltab[name]
 
@@ -4481,22 +4481,22 @@ class PEDACmd(object):
             text = ""
             text2 = ""
             text += name + "("
-            for key in regslist :
-                if key in arg :
+            for key in regslist:
+                if key in arg:
                     value = peda.getreg(key)
                     content = arg[key]
                     text += blue(content,"light") + " = " + hex(value) + ", "
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s: %s\n" % (green(content,"light"),format_reference_chain(chain))
             if text[-1] is not '(':
-                text = text[:-1] + yellow(")","light")
+                text = text[:-2] + yellow(")","light")
                 msg(yellow(text,"light"))
                 msg(text2.strip())
-            else :
+            else:
                 text = text +  yellow(")","light")
                 msg(yellow(text,"light"))
 
-            if nr == 0xf :
+            if nr == 0xf:
                 msg(yellow(separator(" SROP info "),"light"))
                 step = peda.intsize()
                 sp = peda.getreg("sp")
@@ -4510,15 +4510,15 @@ class PEDACmd(object):
                 i = 0
                 concern = ["rax","rbx","rcx","rdx","rsi","rdi","rip","rsp","rbp"]
                 for key,value in context.items():
-                    if key in concern :
+                    if key in concern:
                         text += (yellow(("%14s" % key + ":"),"light") + blue(value))
-                    else :
+                    else:
                         text += (green(("%14s" % key + ":"),"light") + blue(value))
                     i += 1
-                    if i % 2 == 0  :
+                    if i % 2 == 0:
                         text += "\n"
                 msg(text)
-        except :
+        except:
             msg(red("Syscall not fround !!"))
 
 
