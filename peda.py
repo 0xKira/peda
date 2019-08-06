@@ -4757,9 +4757,9 @@ class PEDACmd(object):
             start -= count // 2 - (end - cur_line)
         for number, line in enumerate(self.source_lines[start:end], start + 1):
             if int(number) == cur_line:
-                msg(green("==> " + str(number) + " " + line.rstrip("\n"), "light"))
+                msg(green("==> {:<4} {}".format(number, line.rstrip("\n")), "light"))
             else:
-                msg("    " + str(number) + " " + line.rstrip("\n"))
+                msg("    {:<4} {}".format(number, line.rstrip("\n")))
         return
 
     def context(self, *arg):
