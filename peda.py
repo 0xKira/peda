@@ -71,8 +71,6 @@ REGISTERS = {
     list(map(lambda x: "x%i" % x, range(31))) + ["sp", "pc"] + list(map(lambda x: "w%i" % x, range(31)))
 }
 
-armplt = {}
-noplt = {}
 diff_regs = {}
 
 
@@ -790,20 +788,6 @@ class PEDA(object):
             return None
         else:
             code = out
-        (arch, bits) = self.getarch()
-        protection = peda.checksec()
-        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
-            if len(noplt) == 0:
-                peda.elfsymbols()
-            for (k, v) in noplt.items():
-                if hex(v) in code:
-                    code = code.replace(hex(v), hex(v) + " <" + k + ">")
-        if "arm" in arch and armplt is not None:
-            if len(armplt) == 0:
-                peda.elfsymbols()
-            for (k, v) in armplt.items():
-                if hex(v) in code:
-                    code = code.replace(hex(v), hex(v) + " <" + k + ">")
 
         return code
 
@@ -2708,100 +2692,9 @@ class PEDA(object):
             - dictionary of (address(Int), symname(String))
         """
 
-        def _getgotplt(arch):
-            gotplt = []
-            procname = self.getfile()
-            remove_start = False
-            if "arm" in arch:
-                result = subprocess.check_output("objdump -R " + procname + "|grep R_ARM_JUMP_SLOT", shell=True)
-            elif arch == "elf32-i386":
-                result = subprocess.check_output("objdump -R " + procname + "|grep R_386_GLOB_DAT", shell=True)
-            else:
-                result = subprocess.check_output("objdump -R " + procname + "|grep R_X86_64_GLOB_DAT", shell=True)
-            result = result.decode('utf8')
-            try:
-                temp = subprocess.check_output(
-                    "objdump -d " + procname + "| grep call.*GLOBAL_OFFSET_TABLE", shell=True).decode('utf8')
-                if len(temp) > 0:
-                    remove_start = True
-            except:
-                pass
-            for element in result.split('\n')[:-1]:
-                data = element.split()[2]
-                if "stdout" in data or "registerTMCloneTable" in data or "RegisterClasse" in data or "stdin" in data:
-                    continue
-                if ("__libc_start_main" in data or "__gmon_start__" in data) and remove_start:
-                    continue
-                if "@GLIBC_2.0" in data:
-                    data = data.strip("@GLIBC_2.0")
-                if "@GLIBC_2.2.5" in data:
-                    data = data.strip("@GLIBC_2.2.5")
-                if "@GLIBC_2.14" in data:
-                    data = data.strip("@GLIBC_2.14")
-                if "@GLIBC_2.4" in data:
-                    data = data.strip("@GLIBC_2.4")
-                gotplt.append(data + "@plt")
-            return gotplt
-
-        def _getplt(arch):
-            binmap = self.get_vmmap("binary")
-            elfbase = binmap[0][0] if binmap else 0
-            plt = {}
-            temp = []
-            got_plt = ["plt0"] + _getgotplt(arch)
-            procname = self.getfile()
-            if "arm" in arch:
-                got_plt = ["plt0"] + _getgotplt(arch)
-                result = subprocess.check_output(
-                    "objdump -d -j .plt " + procname + "| grep -A 31337 .plt\>", shell=True).decode('utf8')
-
-                if "@plt" in result:
-                    return None
-                pltentry = result.split('\n')[1:]
-                temp.append(int(pltentry[0].split(":")[0].strip(), 16))
-                pltentry = pltentry[5:]
-                for i in range(int(len(pltentry) / 3)):
-                    temp.append(int(pltentry[i * 3].split(":")[0].strip(), 16))
-                symbols = dict(zip(got_plt, temp))
-                for (k, v) in symbols.items():
-                    if v < elfbase:
-                        symbols[k] = v + elfbase
-                return symbols
-            else:
-                got_plt = _getgotplt(arch)
-
-                try:
-                    result = subprocess.check_output(
-                        "objdump -d -j .plt.got " + procname + " 2>/dev/null | grep -A 31337 .plt.got",
-                        shell=True).decode('utf8')
-                except subprocess.CalledProcessError as e:
-                    return []
-                pltentry = result.split("\n")[2:]
-                # objdump < 2.29
-                if '' not in pltentry:
-                    for i in range(int(len(pltentry) / 2)):
-                        temp.append(int(pltentry[i * 2].split(":")[0].strip(), 16))
-                # objdump >= 2.29
-                else:
-                    for i in range(int(len(pltentry) / 4)):
-                        temp.append(int(pltentry[i * 4 + 1].split(":")[0].strip(), 16))
-                symbols = dict(zip(got_plt, temp))
-                for (k, v) in symbols.items():
-                    if v < elfbase:
-                        symbols[k] = v + elfbase
-                return symbols
-
         headers = self.elfheader()
         if ".plt" not in headers:  # static binary
             return {}
-        (arch, bits) = self.getarch()
-        global armplt
-        if "arm" in arch and armplt is not None:
-
-            if len(armplt) == 0:
-                armplt = _getplt(arch)
-            if armplt is not None:
-                return armplt
 
         protection = peda.checksec()
 
@@ -2840,13 +2733,6 @@ class PEDA(object):
                     if symname not in symbols:
                         symbols[symname] = addr
                         break
-
-        if (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64") and len(symbols) == 0:
-            global noplt
-            if len(noplt) == 0:
-                noplt = _getplt(arch)
-            if noplt is not None:
-                return noplt
 
         # if PIE binary, update with runtime address
         for (k, v) in symbols.items():
@@ -4934,18 +4820,6 @@ class PEDACmd(object):
         """
         (count, ) = normalize_argv(arg, 1)
 
-        def recover_plt(text, arch):
-            protection = peda.checksec()
-            result = text
-            if noplt is not None and (protection["RELRO"] == 3) and (arch == "elf32-i386" or arch == "elf64-x86-64"):
-                if len(noplt) == 0:
-                    peda.elfsymbols()
-                if noplt is not None:
-                    for (k, v) in noplt.items():
-                        if hex(v) in text:
-                            result = text.replace(hex(v), hex(v) + " <" + k + ">")
-            return result
-
         if count is None:
             count = 8
 
@@ -4971,13 +4845,6 @@ class PEDACmd(object):
 
         if "aarch64" in arch or "arm" in arch:
             text += peda.disassemble_around(pc, count)
-            if armplt is not None and "arm" in arch:
-                if len(armplt) == 0:
-                    peda.elfsymbols()
-                if armplt is not None:
-                    for (k, v) in armplt.items():
-                        if hex(v) in text:
-                            text = text.replace(hex(v), hex(v) + " <" + k + ">")
 
             if opcode == "bl" or opcode == "blx" or opcode == "blr":
                 msg(format_disasm_code(text, pc))
@@ -5066,7 +4933,6 @@ class PEDACmd(object):
             # stopped at other instructions
             else:
                 text += peda.disassemble_around(pc, count)
-                text = recover_plt(text, arch)
                 msg(format_disasm_code(text, pc))
 
                 if "syscall" in opcode:
