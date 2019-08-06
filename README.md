@@ -12,12 +12,10 @@ PEDA - Python Exploit Development Assistance for GDB
 * Simple support for ppc and mipsel
   * register support
 * Recover armv7 dynamic symbol
-* Show different register from prev instruction 
 * Simple source code context
 * heap colorize
 * Syscall information in x86/x64
 * SROP information in x86/x64
-* contextup/contextdown scroll context of code
 
 ## Key Features:
 * Enhance the display of gdb: colorize and display disassembly codes, registers, memory information during debugging.
@@ -25,7 +23,6 @@ PEDA - Python Exploit Development Assistance for GDB
   * `aslr` -- Show/set ASLR setting of GDB
   * `checksec` -- Check for various security options of binary
   * `dumpargs` -- Display arguments passed to a function when stopped at a call instruction
-  * `dumprop` -- Dump all ROP gadgets in specific memory range
   * `elfheader` -- Get headers information from debugged ELF file
   * `elfsymbol` -- Get non-debugging symbol information from an ELF file
   * `lookup` -- Search for all addresses/references to addresses which belong to a memory range
@@ -35,8 +32,6 @@ PEDA - Python Exploit Development Assistance for GDB
   * `pshow` -- Show various PEDA options and other settings
   * `pset` -- Set various PEDA options and other settings
   * `readelf` -- Get headers information from an ELF file
-  * `ropgadget` -- Get common ROP gadgets of binary or library
-  * `ropsearch` -- Search for ROP gadgets in memory
   * `searchmem|find` -- Search for a pattern in memory; support regex search
   * `shellcode` -- Generate or download common shellcodes.
   * `skeleton` -- Generate python exploit code template
@@ -45,7 +40,7 @@ PEDA - Python Exploit Development Assistance for GDB
 
 ## Installation
 
-    git clone https://github.com/scwuaptx/peda.git ~/peda
+    git clone https://github.com/0xKira/peda ~/peda
     echo "source ~/peda/peda.py" >> ~/.gdbinit
     echo "DONE! debug your program with gdb and enjoy"
 
