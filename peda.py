@@ -3181,6 +3181,7 @@ class PEDACmd(object):
         # list of all available commands
         self.commands = [c for c in dir(self) if callable(getattr(self, c)) and not c.startswith("_")]
         self.mode = 0
+        self._diff_regs = {}
 
     ##################
     #   Misc Utils   #
@@ -5317,8 +5318,11 @@ class PEDACmd(object):
         if not self._is_running():
             return
 
-        def get_reg_text(r, v):
-            text = green("%s" % r.upper().ljust(3)) + ": "
+        def get_reg_text(r, v, is_diff=False):
+            if is_diff:
+                text = red("%s" % r.upper().ljust(3), "light") + ": "
+            else:
+                text = green("%s" % r.upper().ljust(3)) + ": "
             chain = peda.examine_mem_reference(v)
             text += format_reference_chain(chain)
             text += "\n"
@@ -5331,12 +5335,18 @@ class PEDACmd(object):
             if regname is None:
                 for r in REGISTERS[arch]:
                     if r in regs:
-                        text += get_reg_text(r, regs[r])
+                        if r in self._diff_regs and self._diff_regs[r] != regs[r]:
+                            text += get_reg_text(r, regs[r], is_diff=True)
+                        else:
+                            text += get_reg_text(r, regs[r])
+                        self._diff_regs[r] = regs[r]
             else:
                 for (r, v) in sorted(regs.items()):
                     text += get_reg_text(r, v)
+
             if text:
                 msg(text.strip())
+
             if "x86-64" in arch or "i386" in arch:
                 if regname is None or "eflags" in regname:
                     self.eflags()
