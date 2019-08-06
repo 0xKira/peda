@@ -2984,41 +2984,8 @@ class PEDA(object):
         # result["RELRO"] == 3 # Full | BIND_NOW + GNU_RELRO
         return result
 
-    def _verify_rop_gadget(self, start, end, depth=5):
-        """
-        Verify ROP gadget code from start to end with max number of instructions
-
-        Args:
-            - start: start address (Int)
-            - end: end addres (Int)
-            - depth: number of instructions (Int)
-
-        Returns:
-            - list of valid gadgets (address(Int), asmcode(String))
-        """
-
-        result = []
-        valid = 0
-        out = self.execute_redirect("disassemble 0x%x, 0x%x" % (start, end + 1))
-        if not out:
-            return []
-
-        code = out.splitlines()[1:-1]
-        for line in code:
-            if "bad" in line:
-                return []
-            (addr, code) = line.strip().split(":", 1)
-            addr = to_int(addr.split()[0])
-            result += [(addr, " ".join(code.strip().split()))]
-            if "ret" in code:
-                return result
-            if len(result) > depth:
-                break
-
-        return []
-
     @memoized
-    def search_asm(self, start, end, asmcode, rop=0):
+    def search_asm(self, start, end, asmcode):
         """
         Search for ASM instructions in memory
 
@@ -3075,8 +3042,6 @@ class PEDA(object):
                 .replace(decode_hex_escape(b"00"), b".")\
                 .replace(decode_hex_escape(b"ff"), b".")
 
-            if rop and 'ret' not in asmcode:
-                search += b".{0,24}\\xc3"
             searches.append(search)
 
         if not searches:
@@ -3086,136 +3051,13 @@ class PEDA(object):
         search = b"(?=(" + b"|".join(searches) + b"))"
         candidates = self.searchmem(start, end, search)
 
-        if rop:
-            result = {}
-            for (a, v) in candidates:
-                gadget = self._verify_rop_gadget(a, a + len(v) // 2 - 1)
-                # gadget format: [(address, asmcode), (address, asmcode), ...]
-                if gadget != []:
-                    blen = gadget[-1][0] - gadget[0][0] + 1
-                    bytes = v[:2 * blen]
-                    asmcode_rs = "; ".join([c for _, c in gadget])
-                    if re.search(re.escape(asmcode).replace("\ ",".*").replace("\?",".*"), asmcode_rs)\
-                        and a not in result:
-                        result[a] = (bytes, asmcode_rs)
-            result = list(result.items())
-        else:
-            result = []
-            for (a, v) in candidates:
-                asmcode = self.execute_redirect("disassemble 0x%x, 0x%x" % (a, a + (len(v) // 2)))
-                if asmcode:
-                    asmcode = "\n".join(asmcode.splitlines()[1:-1])
-                    matches = re.findall(".*:([^\n]*)", asmcode)
-                    result += [(a, (v, ";".join(matches).strip()))]
-
-        return result
-
-    def dumprop(self, start, end, keyword=None, depth=5):
-        """
-        Dump unique ROP gadgets in memory
-
-        Args:
-            - start: start address (Int)
-            - end: end address (Int)
-            - keyword: to match start of gadgets (String)
-
-        Returns:
-            - dictionary of (address(Int), asmcode(String))
-        """
-
-        EXTRA_WORDS = ["BYTE ", " WORD", "DWORD ", "FWORD ", "QWORD ", "PTR ", "FAR "]
-        result = {}
-        mem = self.dumpmem(start, end)
-        if mem is None:
-            return {}
-
-        if keyword:
-            search = keyword
-        else:
-            search = ""
-
-        if len(mem) > 20000:  # limit backward depth if searching in large mem
-            depth = 3
-        found = re.finditer(b"\xc3", mem)
-        found = list(found)
-        for m in found:
-            idx = start + m.start()
-            for i in range(1, 24):
-                gadget = self._verify_rop_gadget(idx - i, idx, depth)
-                if gadget != []:
-                    k = "; ".join([v for (a, v) in gadget])
-                    if k.startswith(search):
-                        for w in EXTRA_WORDS:
-                            k = k.replace(w, "")
-                        if k not in result:
-                            result[k] = gadget[0][0]
-        return result
-
-    def common_rop_gadget(self, mapname=None):
-        """
-        Get common rop gadgets in binary: ret, popret, pop2ret, pop3ret, add [mem] reg, add reg [mem]
-
-        Returns:
-            - dictionary of (gadget(String), address(Int))
-        """
-
-        def _valid_register_opcode(bytes_):
-            if not bytes_:
-                return False
-
-            for c in bytes_iterator(bytes_):
-                if ord(c) not in list(range(0x58, 0x60)):
-                    return False
-            return True
-
-        result = {}
-        if mapname is None:
-            mapname = "binary"
-        maps = self.get_vmmap(mapname)
-        if maps is None:
-            return result
-
-        for (start, end, _, _) in maps:
-            if not self.is_executable(start, maps): continue
-
-            mem = self.dumpmem(start, end)
-            found = self.searchmem(start, end, b"....\xc3", mem)
-            for (a, v) in found:
-                v = codecs.decode(v, 'hex')
-                if "ret" not in result:
-                    result["ret"] = a + 4
-                if "leaveret" not in result:
-                    if v[-2] == "\xc9":
-                        result["leaveret"] = a + 3
-                if "popret" not in result:
-                    if _valid_register_opcode(v[-2:-1]):
-                        result["popret"] = a + 3
-                if "pop2ret" not in result:
-                    if _valid_register_opcode(v[-3:-1]):
-                        result["pop2ret"] = a + 2
-                if "pop3ret" not in result:
-                    if _valid_register_opcode(v[-4:-1]):
-                        result["pop3ret"] = a + 1
-                if "pop4ret" not in result:
-                    if _valid_register_opcode(v[-5:-1]):
-                        result["pop4ret"] = a
-
-            # search for add esp, byte 0xNN
-            found = self.searchmem(start, end, b"\x83\xc4([^\xc3]){0,24}\xc3", mem)
-            # search for add esp, 0xNNNN
-            found += self.searchmem(start, end, b"\x81\xc4([^\xc3]){0,24}\xc3", mem)
-            for (a, v) in found:
-                if v.startswith(b"81"):
-                    offset = to_int("0x" + codecs.encode(codecs.decode(v, 'hex')[2:5][::-1], 'hex').decode('utf-8'))
-                elif v.startswith(b"83"):
-                    offset = to_int("0x" + v[4:6].decode('utf-8'))
-                gg = self._verify_rop_gadget(a, a + len(v) // 2 - 1)
-                for (_, c) in gg:
-                    if "pop" in c:
-                        offset += 4
-                gadget = "addesp_%d" % offset
-                if gadget not in result:
-                    result[gadget] = a
+        result = []
+        for (a, v) in candidates:
+            asmcode = self.execute_redirect("disassemble 0x%x, 0x%x" % (a, a + (len(v) // 2)))
+            if asmcode:
+                asmcode = "\n".join(asmcode.splitlines()[1:-1])
+                matches = re.findall(".*:([^\n]*)", asmcode)
+                result += [(a, (v, ";".join(matches).strip()))]
 
         return result
 
@@ -3328,102 +3170,6 @@ class PEDA(object):
                 return result
             search = search[i:]
         return result
-
-    ##############################
-    #   ROP Payload Generation   #
-    ##############################
-    def payload_copybytes(self, target=None, data=None, template=0):
-        """
-        Suggest function for ret2plt exploit and generate payload for it
-
-        Args:
-            - target: address to copy data to (Int)
-            - data: (String)
-        Returns:
-            - python code template (String)
-        """
-        result = ""
-        funcs = ["strcpy", "sprintf", "strncpy", "snprintf", "memcpy"]
-
-        symbols = self.elfsymbols()
-        transfer = ""
-        for f in funcs:
-            if f + "@plt" in symbols:
-                transfer = f
-                break
-        if transfer == "":
-            warning_msg("No copy function available")
-            return None
-
-        headers = self.elfheader()
-        start = min([v[0] for (k, v) in headers.items() if v[0] > 0])
-        end = max([v[1] for (k, v) in headers.items() if v[2] != "data"])
-        symbols = self.elfsymbol(transfer)
-        if not symbols:
-            warning_msg("Unable to find symbols")
-            return None
-
-        plt_func = transfer + "_plt"
-        plt_addr = symbols[transfer + "@plt"]
-        gadgets = self.common_rop_gadget()
-        function_template = "\n".join([
-            "popret = 0x%x" % gadgets["popret"],
-            "pop2ret = 0x%x" % gadgets["pop2ret"],
-            "pop3ret = 0x%x" % gadgets["pop3ret"],
-            "def %s_payload(target, bytes):" % transfer,
-            "    %s = 0x%x" % (plt_func, plt_addr),
-            "    payload = []",
-            "    offset = 0",
-            "    for (str, addr) in bytes:",
-            "",
-        ])
-        if "ncp" in transfer or "mem" in transfer:  # memcpy() style
-            function_template += "\n".join([
-                "        payload += [%s, pop3ret, target+offset, addr, len(str)]" % plt_func,
-                "        offset += len(str)",
-            ])
-        elif "snp" in transfer:  # snprintf()
-            function_template += "\n".join([
-                "        payload += [%s, pop3ret, target+offset, len(str)+1, addr]" % plt_func,
-                "        offset += len(str)",
-            ])
-        else:
-            function_template += "\n".join([
-                "        payload += [%s, pop2ret, target+offset, addr]" % plt_func,
-                "        offset += len(str)",
-            ])
-        function_template += "\n".join(["", "    return payload", "", "payload = []"])
-
-        if target is None:
-            if template != 0:
-                return function_template
-            else:
-                return ""
-
-        #text = "\n_payload = []\n"
-        text = "\n"
-        mem = self.dumpmem(start, end)
-        bytes = self.search_substr(start, end, data, mem)
-
-        if to_int(target) is not None:
-            target = to_hex(target)
-        text += "# %s <= %s\n" % (target, repr(data))
-        if not bytes:
-            text += "***Failed***\n"
-        else:
-            text += "bytes = [\n"
-            for (s, a) in bytes:
-                if a != -1:
-                    text += "    (%s, %s),\n" % (repr(s), to_hex(a))
-                else:
-                    text += "    (%s, ***Failed***),\n" % repr(s)
-            text += "\n".join([
-                "]",
-                "payload += %s_payload(%s, bytes)" % (transfer, target),
-                "",
-            ])
-
-        return text
 
 
 ###########################################################################
@@ -5890,125 +5636,6 @@ class PEDACmd(object):
 
         return
 
-    # search_asm()
-    def ropsearch(self, *arg):
-        """
-        Search for ROP gadgets in memory
-            Note: only for simple gadgets, for full ROP search try: http://ropshell.com
-        Usage:
-            MYNAME "gadget" start end
-            MYNAME "gadget" pagename
-        """
-
-        (asmcode, start, end) = normalize_argv(arg, 3)
-        if asmcode is None:
-            self._missing_argument()
-
-        if not self._is_running():
-            return
-
-        asmcode = arg[0]
-        result = []
-        if end is None:
-            if start is None:
-                mapname = "binary"
-            else:
-                mapname = start
-            maps = peda.get_vmmap(mapname)
-            msg("Searching for ROP gadget: %s in: %s ranges" % (repr(asmcode), mapname))
-            for (start, end, _, _) in maps:
-                if not peda.is_executable(start, maps): continue  # skip non-executable page
-                result += peda.search_asm(start, end, asmcode, rop=1)
-        else:
-            msg("Searching for ROP gadget: %s in range: 0x%x - 0x%x" % (repr(asmcode), start, end))
-            result = peda.search_asm(start, end, asmcode, rop=1)
-
-        result = sorted(result, key=lambda x: len(x[1][0]))
-        text = "Not found"
-        if result:
-            text = ""
-            for (addr, (byte, code)) in result:
-                text += "%s : (%s)\t%s\n" % (to_address(addr), byte, code)
-        pager(text)
-
-        return
-
-    # dumprop()
-    def dumprop(self, *arg):
-        """
-        Dump all ROP gadgets in specific memory range
-            Note: only for simple gadgets, for full ROP search try: http://ropshell.com
-            Warning: this can be very slow, do not run for big memory range
-        Usage:
-            MYNAME start end [keyword] [depth]
-            MYNAME mapname [keyword]
-                default gadget instruction depth is: 5
-        """
-
-        (start, end, keyword, depth) = normalize_argv(arg, 4)
-        filename = peda.getfile()
-        if filename is None:
-            warning_msg("please specify a filename to debug")
-            return
-
-        filename = os.path.basename(filename)
-        mapname = None
-        if start is None:
-            mapname = "binary"
-        elif end is None:
-            mapname = start
-        elif to_int(end) is None:
-            mapname = start
-            keyword = end
-
-        if depth is None:
-            depth = 5
-
-        result = {}
-        warning_msg("this can be very slow, do not run for large memory range")
-        if mapname:
-            maps = peda.get_vmmap(mapname)
-            for (start, end, _, _) in maps:
-                if not peda.is_executable(start, maps): continue  # skip non-executable page
-                result.update(peda.dumprop(start, end, keyword))
-        else:
-            result.update(peda.dumprop(start, end, keyword))
-
-        text = "Not found"
-        if len(result) > 0:
-            text = ""
-            outfile = "%s-rop.txt" % filename
-            fd = open(outfile, "w")
-            msg("Writing ROP gadgets to file: %s ..." % outfile)
-            for (code, addr) in sorted(result.items(), key=lambda x: len(x[0])):
-                text += "0x%x: %s\n" % (addr, code)
-                fd.write("0x%x: %s\n" % (addr, code))
-            fd.close()
-
-        pager(text)
-        return
-
-    # common_rop_gadget()
-    def ropgadget(self, *arg):
-        """
-        Get common ROP gadgets of binary or library
-        Usage:
-            MYNAME [mapname]
-        """
-
-        (mapname, ) = normalize_argv(arg, 1)
-        result = peda.common_rop_gadget(mapname)
-        if not result:
-            msg("Not found")
-        else:
-            text = ""
-            for (k, v) in sorted(
-                    result.items(), key=lambda x: len(x[0]) if not x[0].startswith("add") else int(x[0].split("_")[1])):
-                text += "%s = 0x%x\n" % (k, v)
-            pager(text)
-
-        return
-
     # search_jmpcall()
     def jmpcall(self, *arg):
         """
@@ -6631,48 +6258,6 @@ class PEDACmd(object):
         msg(repr(nops))
 
         return
-
-    def payload(self, *arg):
-        """
-        Generate various type of ROP payload using ret2plt
-        Usage:
-            MYNAME copybytes (generate function template for ret2strcpy style payload)
-            MYNAME copybytes dest1 data1 dest2 data2 ...
-        """
-        (option, ) = normalize_argv(arg, 1)
-        if option is None:
-            self._missing_argument()
-
-        if option == "copybytes":
-            result = peda.payload_copybytes(template=1)  # function template
-            arg = arg[1:]
-            while len(arg) > 0:
-                (target, data) = normalize_argv(arg, 2)
-                if data is None:
-                    break
-                if to_int(data) is None:
-                    if data[0] == "[" and data[-1] == "]":
-                        data = eval(data)
-                        data = list2hexstr(data, peda.intsize())
-                else:
-                    data = "0x%x" % data
-                result += peda.payload_copybytes(target, data)
-                arg = arg[2:]
-
-        if not result:
-            msg("Failed to construct payload")
-        else:
-            text = ""
-            indent = to_int(config.Option.get("indent"))
-            for line in result.splitlines():
-                text += " " * indent + line + "\n"
-            msg(text)
-            filename = peda.get_config_filename("payload")
-            open(filename, "w").write(text)
-
-        return
-
-    payload.options = ["copybytes"]
 
     def snapshot(self, *arg):
         """
