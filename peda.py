@@ -71,8 +71,6 @@ REGISTERS = {
     list(map(lambda x: "x%i" % x, range(31))) + ["sp", "pc"] + list(map(lambda x: "w%i" % x, range(31)))
 }
 
-diff_regs = {}
-
 
 ###########################################################################
 class PEDA(object):
@@ -5326,13 +5324,6 @@ class PEDACmd(object):
             text += "\n"
             return text
 
-        def get_diff_reg_text(r, v):
-            text = red("%s" % r.upper().ljust(3), "light") + ": "
-            chain = peda.examine_mem_reference(v)
-            text += format_reference_chain(chain)
-            text += "\n"
-            return text
-
         (arch, bits) = peda.getarch()
         if str(address).startswith("r"):
             # Register
@@ -5340,24 +5331,16 @@ class PEDACmd(object):
             if regname is None:
                 for r in REGISTERS[arch]:
                     if r in regs:
-                        if r in diff_regs and diff_regs[r] != regs[r]:
-                            text += get_diff_reg_text(r, regs[r])
-                        else:
-                            text += get_reg_text(r, regs[r])
-                        diff_regs[r] = regs[r]
-                        # text += green("%s" % r.upper().ljust(3)) + ": "
-                        # chain = peda.examine_mem_reference(regs[r])
-                        # text += format_reference_chain(chain)
-                        # text += "\n"
+                        text += get_reg_text(r, regs[r])
             else:
                 for (r, v) in sorted(regs.items()):
                     text += get_reg_text(r, v)
             if text:
                 msg(text.strip())
             if "x86-64" in arch or "i386" in arch:
-                intel = True
+                if regname is None or "eflags" in regname:
+                    self.eflags()
             else:
-                intel = False
                 if regname is None or "cpsr" in regname:
                     if "arm" in arch:
                         self.cpsr()
@@ -5365,9 +5348,7 @@ class PEDACmd(object):
                         self.aarch64_cpsr()
                     else:
                         pass
-            if intel:
-                if regname is None or "eflags" in regname:
-                    self.eflags()
+
             return
 
         elif to_int(address) is None:
