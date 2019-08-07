@@ -1801,6 +1801,55 @@ class PEDA(object):
 
         """
 
+        def _get_section_offset(filename, section):
+            out = execute_external_command("%s -W -S %s" % (config.READELF, filename))
+            if not out:
+                return 0
+            # to be improve
+            p = re.compile(".*\[.*\] (\.[^ ]+) [^0-9]* [0-9a-f]+ ([0-9a-f]+).*")
+            matches = p.findall(out)
+            if not matches:
+                return 0
+            for (hname, off) in matches:
+                if hname == section:
+                    return to_int('0x' + off)
+            return 0
+
+        # credit to https://github.com/pwndbg/pwndbg/blob/88723a8c0a88369fa2dd267d1fb5c63464db55cb/pwndbg/vmmap.py#L274
+        def _get_info_files_maps():
+            maps = list()
+            main_exe = ''
+            last_file = list()
+            seen_files = set()
+            for line in self.execute_redirect('info files').splitlines():
+                line = line.strip()
+                # The name of the main executable
+                if line.startswith('`'):
+                    exename, filetype = line.split(None, 1)
+                    main_exe = exename.strip("`,'")
+                    continue
+                # Everything else should be addresses
+                if not line.startswith('0x'):
+                    continue
+                # start, _, stop, _, section, _, filename = line.split(None,6)
+                fields = line.split(None, 6)
+                if len(fields) == 5: objfile = main_exe
+                elif len(fields) == 7: objfile = fields[6]
+                else:
+                    msg("Bad data: %r" % line)
+                    continue
+                if objfile not in seen_files:
+                    if last_file:
+                        end = (to_int(last_file[-1][1]) + 0xfff) & ~0xfff
+                        maps.append((start, end, 'rwxp', last_file[-1][0]))
+                    seen_files.add(objfile)
+                    start = to_int(fields[0]) - _get_section_offset(objfile, fields[4])
+                last_file.append((objfile, fields[2]))  # filename and stop addr
+
+            end = (to_int(last_file[-1][1]) + 0xfff) & ~0xfff
+            maps.append((start, end, 'rwxp', last_file[-1][0]))
+            return maps
+
         def _get_offline_maps():
             name = self.getfile()
             if not name:
@@ -1882,11 +1931,19 @@ class PEDA(object):
             pattern = re.compile("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)")
 
             if remote:  # remote target
-                tmp = tmpfile()
-                self.execute("remote get %s %s" % (mpath, tmp.name))
-                tmp.seek(0)
-                out = tmp.read()
-                tmp.close()
+                # check if is QEMU
+                if 'ENABLE=' in self.execute_redirect('maintenance packet Qqemu.sstepbits'):
+                    maps = _get_info_files_maps()
+                    # add stack to maps
+                    sp = self.getreg("sp") & ~0xfff
+                    maps.append((sp, sp + 0x1000, 'rwxp', '[stack]'))
+                    return maps
+                else:
+                    tmp = tmpfile()
+                    self.execute("remote get %s %s" % (mpath, tmp.name))
+                    tmp.seek(0)
+                    out = tmp.read()
+                    tmp.close()
             else:  # local target
                 out = open(mpath).read()
 
@@ -2819,6 +2876,7 @@ class PEDA(object):
             - dictionary of headers (name(String), value(Int)) (Dict)
         """
         elfinfo = {}
+        result = {}
         vmap = self.get_vmmap(filename)
         elfbase = vmap[0][0] if vmap else 0
         out = execute_external_command("%s -W -S %s" % (config.READELF, filename))
@@ -2845,7 +2903,6 @@ class PEDA(object):
                 htype = "rodata"
             elfinfo[hname.strip()] = (start, end, htype)
 
-        result = {}
         if name is None:
             result = elfinfo
         else:
@@ -4871,6 +4928,8 @@ class PEDACmd(object):
                     if addr >= start and addr < end:
                         maps += [(start, end, perm, name)]
 
+        if 'ENABLE=' in peda.execute_redirect('maintenance packet Qqemu.sstepbits'):
+            warning_msg('QEMU target detected - vmmap result might not be accurate')
         if maps is not None and len(maps) > 0:
             l = 10 if peda.intsize() == 4 else 18
             msg("%s %s %s\t%s" % ("Start".ljust(l, " "), "End".ljust(l, " "), "Perm", "Name"), "blue", "bold")
