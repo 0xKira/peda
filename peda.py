@@ -4928,7 +4928,7 @@ class PEDACmd(object):
                     if addr >= start and addr < end:
                         maps += [(start, end, perm, name)]
 
-        if 'ENABLE=' in peda.execute_redirect('maintenance packet Qqemu.sstepbits'):
+        if peda.is_target_remote() and 'ENABLE=' in peda.execute_redirect('maintenance packet Qqemu.sstepbits'):
             warning_msg('QEMU target detected - vmmap result might not be accurate')
         if maps is not None and len(maps) > 0:
             l = 10 if peda.intsize() == 4 else 18
