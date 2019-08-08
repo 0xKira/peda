@@ -84,7 +84,7 @@ class PEDA(object):
     ####################################
     #   GDB Interaction / Misc Utils   #
     ####################################
-    def execute(self, gdb_command):
+    def execute(self, gdb_command, to_string=False):
         """
         Wrapper for gdb.execute, catch the exception so it will not stop python script
 
@@ -93,57 +93,19 @@ class PEDA(object):
 
         Returns:
             - True if execution succeed (Bool)
+            - Results of command (String)
         """
         try:
-            gdb.execute(gdb_command)
-            return True
+            out = gdb.execute(gdb_command, to_string=to_string)
+            if to_string:
+                return out
+            else:
+                return True
         except Exception as e:
             if config.Option.get("debug") == "on":
                 msg('Exception (%s): %s' % (gdb_command, e), "red")
                 traceback.print_exc()
             return False
-
-    def execute_redirect(self, gdb_command, silent=False):
-        """
-        Execute a gdb command and capture its output
-
-        Args:
-            - gdb_command (String)
-            - silent: discard command's output, redirect to /dev/null (Bool)
-
-        Returns:
-            - output of command (String)
-        """
-        result = None
-        #init redirection
-        if silent:
-            logfd = open(os.path.devnull, "r+")
-        else:
-            logfd = tmpfile()
-        logname = logfd.name
-        gdb.execute('set logging off')  # prevent nested call
-        gdb.execute('set height 0')  # disable paging
-        gdb.execute('set logging file %s' % logname)
-        gdb.execute('set logging overwrite on')
-        gdb.execute('set logging redirect on')
-        gdb.execute('set logging on')
-        try:
-            gdb.execute(gdb_command)
-            gdb.flush()
-            gdb.execute('set logging off')
-            if not silent:
-                logfd.flush()
-                result = logfd.read()
-            logfd.close()
-        except Exception as e:
-            gdb.execute('set logging off')  # to be sure
-            if config.Option.get("debug") == "on":
-                msg('Exception (%s): %s' % (gdb_command, e), "red")
-                traceback.print_exc()
-            logfd.close()
-        if config.Option.get("verbose") == "on":
-            msg(result)
-        return result
 
     def parse_and_eval(self, exp):
         """
@@ -184,14 +146,14 @@ class PEDA(object):
             elif "WORD" in matches.group(1):
                 mod = "h"
 
-            out = self.execute_redirect("x/%sx %s" % (mod, matches.group(2)))
+            out = self.execute("x/%sx %s" % (mod, matches.group(2)), to_string=True)
             if not out:
                 return None
             else:
                 return out.split(":\t")[-1].strip()
 
         else:
-            out = self.execute_redirect("print %s" % exp)
+            out = self.execute("print %s" % exp, to_string=True)
         if not out:
             return None
         else:
@@ -255,7 +217,7 @@ class PEDA(object):
         Returns:
             - True if success to save (Bool)
         """
-        commands = self.execute_redirect("show user %s" % cmd)
+        commands = self.execute("show user %s" % cmd, to_string=True)
         if not commands:
             return False
 
@@ -300,7 +262,7 @@ class PEDA(object):
             - True if success to append (Bool)
         """
 
-        commands = self.execute_redirect("show user %s" % cmd)
+        commands = self.execute("show user %s" % cmd, to_string=True)
         if not commands:
             return self.define_user_command(cmd, code)
         # else
@@ -371,7 +333,7 @@ class PEDA(object):
         Returns:
             - True if target is remote (Bool)
         """
-        out = self.execute_redirect("info program")
+        out = self.execute("info program", to_string=True)
         if out and "serial line" in out:  # remote target
             return True
 
@@ -386,7 +348,7 @@ class PEDA(object):
             - full path to executable file (String)
         """
         result = None
-        out = self.execute_redirect('info files')
+        out = self.execute('info files', to_string=True)
         if out and '"' in out:
             p = re.compile(".*exec file:\s*`(.*)'")
             m = p.search(out)
@@ -412,7 +374,7 @@ class PEDA(object):
                 UNKNOWN - unknown, not implemented
         """
         status = "UNKNOWN"
-        out = self.execute_redirect("info program")
+        out = self.execute("info program", to_string=True)
         for line in out.splitlines():
             if line.startswith("It stopped"):
                 if "signal" in line:  # stopped by signal
@@ -461,7 +423,7 @@ class PEDA(object):
         """
         arch = "unknown"
         bits = 32
-        out = self.execute_redirect('maintenance info sections ?').splitlines()
+        out = self.execute('maintenance info sections ?', to_string=True).splitlines()
         for line in out:
             if "file type" in line:
                 arch = line.split()[-1][:-1]
@@ -493,7 +455,7 @@ class PEDA(object):
             reglist = reglist.replace(",", " ")
         else:
             reglist = ""
-        regs = self.execute_redirect("info registers %s" % reglist)
+        regs = self.execute("info registers %s" % reglist, to_string=True)
         if not regs:
             return None
 
@@ -527,7 +489,7 @@ class PEDA(object):
             - register value (Int)
         """
         r = register.lower()
-        regs = self.execute_redirect("info registers %s" % r)
+        regs = self.execute("info registers %s" % r, to_string=True)
         if regs:
             regs = regs.splitlines()
             if len(regs) > 1:
@@ -568,7 +530,7 @@ class PEDA(object):
         Returns:
             - tuple (Num(Int), Type(String), Disp(Bool), Enb(Bool), Address(Int), What(String), commands(String))
         """
-        out = self.execute_redirect("info breakpoints %d" % num)
+        out = self.execute("info breakpoints %d" % num, to_string=True)
         if not out or "No breakpoint" in out:
             return None
 
@@ -614,7 +576,7 @@ class PEDA(object):
             - list of tuple (Num(Int), Type(String), Disp(Bool), Nnb(Bool), Address(Int), commands(String))
         """
         result = []
-        out = self.execute_redirect("info breakpoints")
+        out = self.execute("info breakpoints", to_string=True)
         if not out:
             return []
 
@@ -641,7 +603,7 @@ class PEDA(object):
             - True if success to save (Bool)
         """
         # use built-in command for gdb 7.2+
-        result = self.execute_redirect("save breakpoints %s" % filename)
+        result = self.execute("save breakpoints %s" % filename, to_string=True)
         if result == '':
             return True
 
@@ -711,7 +673,7 @@ class PEDA(object):
             filename = self.get_config_filename("session")
 
         # exec-wrapper
-        out = self.execute_redirect("show exec-wrapper")
+        out = self.execute("show exec-wrapper", to_string=True)
         wrapper = out.split('"')[1]
         if wrapper:
             session += "set exec-wrapper %s\n" % wrapper
@@ -781,7 +743,7 @@ class PEDA(object):
             arg += [to_hex(to_int(arg[0]) + 32)]
 
         self.execute("set disassembly-flavor intel")
-        out = self.execute_redirect("disassemble %s %s" % (modif, ",".join(arg)))
+        out = self.execute("disassemble %s %s" % (modif, ",".join(arg)), to_string=True)
         if not out:
             return None
         else:
@@ -807,7 +769,8 @@ class PEDA(object):
             if self.getpid() and not self.is_address(address - backward + i):
                 continue
 
-            code = self.execute_redirect("disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1)))
+            code = self.execute(
+                "disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1)), to_string=True)
             if code and ("%x" % address) in code:
                 lines = code.strip().splitlines()[1:-1]
                 if len(lines) > count and "(bad)" not in " ".join(lines):
@@ -829,7 +792,7 @@ class PEDA(object):
         Returns:
             - tuple of (address(Int), code(String))
         """
-        out = self.execute_redirect("x/i 0x%x" % address)
+        out = self.execute("x/i 0x%x" % address, to_string=True)
         if not out:
             return None
 
@@ -853,7 +816,7 @@ class PEDA(object):
             - - list of tuple (address(Int), code(String))
         """
         result = []
-        code = self.execute_redirect("x/%di 0x%x" % (count + 1, address))
+        code = self.execute("x/%di 0x%x" % (count + 1, address), to_string=True)
         if not code:
             return None
 
@@ -884,7 +847,7 @@ class PEDA(object):
             return None
 
         # check if address is reachable
-        if not self.execute_redirect("x/x 0x%x" % pc):
+        if not self.execute("x/x 0x%x" % pc, to_string=True):
             return None
 
         prev_code = self.prev_inst(pc, count // 2 - 1)
@@ -895,9 +858,9 @@ class PEDA(object):
         if start == pc:
             count = count // 2
 
-        code = self.execute_redirect("x/%di 0x%x" % (count, start))
+        code = self.execute("x/%di 0x%x" % (count, start), to_string=True)
         if "0x%x" % pc not in code:
-            code = self.execute_redirect("x/%di 0x%x" % (count // 2, pc))
+            code = self.execute("x/%di 0x%x" % (count // 2, pc), to_string=True)
 
         return code.rstrip()
 
@@ -940,7 +903,7 @@ class PEDA(object):
             # update with runtime values
             if addr < elfbase:
                 addr += elfbase
-            out = self.execute_redirect("x/i 0x%x" % addr)
+            out = self.execute("x/i 0x%x" % addr, to_string=True)
             if out:
                 line = out
                 p = re.compile("\s*(0x[^ ]*).*?:\s*([^ ]*)\s*(.*)")
@@ -1216,7 +1179,7 @@ class PEDA(object):
         Returns:
             - depth: number of frames (Int)
         """
-        backtrace = self.execute_redirect("backtrace")
+        backtrace = self.execute("backtrace", to_string=True)
         return backtrace.count("#")
 
     def stepuntil(self, inst, mapname=None, depth=None):
@@ -1275,7 +1238,7 @@ class PEDA(object):
                     break
 
             call_depth = self.backtrace_depth(self.getreg("sp"))
-            current_instruction = self.execute_redirect("x/i $pc")
+            current_instruction = self.execute("x/i $pc", to_string=True)
             if not current_instruction:
                 current_instruction = "End of execution"
                 break
@@ -1297,9 +1260,9 @@ class PEDA(object):
                         break
             if found != 0:
                 break
-            self.execute_redirect("stepi", silent=True)
+            self.execute("stepi", to_string=True)
             if not self.is_address(addr, targetmap) or call_depth > maxdepth:
-                self.execute_redirect("finish", silent=True)
+                self.execute("finish", to_string=True)
             pc = 0
 
         return (call_depth - current_depth, current_instruction.strip())
@@ -1513,7 +1476,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute_redirect("x/i 0x%x" % pc)
+            inst = self.execute("x/i 0x%x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1571,7 +1534,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute_redirect("x/i 0x%x" % pc)
+            inst = self.execute("x/i 0x%x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1639,7 +1602,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute_redirect("x/i 0x%x" % pc)
+            inst = self.execute("x/i 0x%x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1821,7 +1784,7 @@ class PEDA(object):
             main_exe = ''
             last_file = list()
             seen_files = set()
-            for line in self.execute_redirect('info files').splitlines():
+            for line in self.execute('info files', to_string=True).splitlines():
                 line = line.strip()
                 # The name of the main executable
                 if line.startswith('`'):
@@ -1932,7 +1895,7 @@ class PEDA(object):
 
             if remote:  # remote target
                 # check if is QEMU
-                if 'ENABLE=' in self.execute_redirect('maintenance packet Qqemu.sstepbits'):
+                if 'ENABLE=' in self.execute('maintenance packet Qqemu.sstepbits', to_string=True):
                     maps = _get_info_files_maps()
                     # add stack to maps
                     sp = self.getreg("sp") & ~0xfff
@@ -2091,7 +2054,7 @@ class PEDA(object):
         Returns:
             - asm code (String)
         """
-        code = self.execute_redirect("x/%di 0x%x" % (count, address))
+        code = self.execute("x/%di 0x%x" % (count, address), to_string=True)
         if code:
             return code.rstrip()
         else:
@@ -2111,7 +2074,7 @@ class PEDA(object):
         mem = None
         logfd = tmpfile(is_binary_file=True)
         logname = logfd.name
-        out = self.execute_redirect("dump memory %s 0x%x 0x%x" % (logname, start, end))
+        out = self.execute("dump memory %s 0x%x 0x%x" % (logname, start, end), to_string=True)
         if out is None:
             return None
         else:
@@ -2139,7 +2102,7 @@ class PEDA(object):
 
         # failed to dump, use slow x/gx way
         mem = ""
-        out = self.execute_redirect("x/%dbx 0x%x" % (size, address))
+        out = self.execute("x/%dbx 0x%x" % (size, address), to_string=True)
         if out:
             for line in out.splitlines():
                 bytes = line.split(":\t")[-1].split()
@@ -2199,7 +2162,7 @@ class PEDA(object):
             tmp = tmpfile(is_binary_file=True)
             tmp.write(buf)
             tmp.flush()
-            out = self.execute_redirect("restore %s binary 0x%x" % (tmp.name, address))
+            out = self.execute("restore %s binary 0x%x" % (tmp.name, address), to_string=True)
             tmp.close()
         if not out:  # try the slow way
             for i in range(len(buf)):
@@ -2512,11 +2475,11 @@ class PEDA(object):
         """
 
         def examine_data(value, bits=32):
-            out = self.execute_redirect("x/%sx 0x%x" % ("g" if bits == 64 else "w", value))
+            out = self.execute("x/%sx 0x%x" % ("g" if bits == 64 else "w", value), to_string=True)
             if out:
                 v = out.split(":\t")[-1].strip()
                 if is_printable(int2hexstr(to_int(v), bits // 8)):
-                    out = self.execute_redirect("x/s 0x%x" % value)
+                    out = self.execute("x/s 0x%x" % value, to_string=True)
             return out
 
         result = (None, None, None)
@@ -2675,7 +2638,7 @@ class PEDA(object):
         Returns:
             - entry address (Int)
         """
-        out = self.execute_redirect("info files")
+        out = self.execute("info files", to_string=True)
         p = re.compile("Entry point: ([^\s]*)")
         if out:
             m = p.search(out)
@@ -2700,7 +2663,7 @@ class PEDA(object):
             binmap = self.get_vmmap("binary")
             elfbase = binmap[0][0] if binmap else 0
 
-        out = self.execute_redirect("maintenance info sections")
+        out = self.execute("maintenance info sections", to_string=True)
         if not out:
             return {}
 
@@ -2779,7 +2742,7 @@ class PEDA(object):
         for symname in dynstrings:
             if not symname: continue
             symname += "@plt"
-            out = self.execute_redirect("info functions %s" % symname)
+            out = self.execute("info functions %s" % symname, to_string=True)
             if not out: continue
             m = re.findall(".*(0x[^ ]*)\s*%s" % re.escape(symname), out)
             for addr in m:
@@ -2937,7 +2900,7 @@ class PEDA(object):
 
         @memoized
         def _elfheader_solib_all():
-            out = self.execute_redirect("info files")
+            out = self.execute("info files", to_string=True)
             if not out:
                 return None
 
@@ -3108,7 +3071,7 @@ class PEDA(object):
 
         result = []
         for (a, v) in candidates:
-            asmcode = self.execute_redirect("disassemble 0x%x, 0x%x" % (a, a + (len(v) // 2)))
+            asmcode = self.execute("disassemble 0x%x, 0x%x" % (a, a + (len(v) // 2)), to_string=True)
             if asmcode:
                 asmcode = "\n".join(asmcode.splitlines()[1:-1])
                 matches = re.findall(".*:([^\n]*)", asmcode)
@@ -3423,7 +3386,7 @@ class PEDACmd(object):
 
         # show args
         def _show_arg():
-            arg = peda.execute_redirect("show args")
+            arg = peda.execute("show args", to_string=True)
             arg = arg.split("started is ")[1][1:-3]
             arg = (peda.string_to_argv(arg))
             if not arg:
@@ -3437,7 +3400,7 @@ class PEDACmd(object):
         def _show_env(name=None):
             if name is None:
                 name = ""
-            env = peda.execute_redirect("show env")
+            env = peda.execute("show env", to_string=True)
             for line in env.splitlines():
                 (k, v) = line.split("=", 1)
                 if k.startswith(name):
@@ -3494,7 +3457,7 @@ class PEDACmd(object):
 
         # set env
         def _set_env(name, value):
-            env = peda.execute_redirect("show env")
+            env = peda.execute("show env", to_string=True)
             cmd = "set env %s " % name
             try:
                 value = eval('%s' % value)
@@ -3611,7 +3574,7 @@ class PEDACmd(object):
         """
         (option, ) = normalize_argv(arg, 1)
         if option is None:
-            out = peda.execute_redirect("show disable-randomization")
+            out = peda.execute("show disable-randomization", to_string=True)
             if not out:
                 warning_msg("ASLR setting is unknown or not available")
                 return
@@ -3886,9 +3849,9 @@ class PEDACmd(object):
                 msg("Attching to pid: %s, cmdname: %s" % (pid, cmdname))
                 if peda.getpid():
                     peda.execute("detach")
-                out = peda.execute_redirect("attach %s" % pid)
+                out = peda.execute("attach %s" % pid, to_string=True)
                 msg(out)
-                out = peda.execute_redirect("file %s" % cmdname)  # reload symbol file
+                out = peda.execute("file %s" % cmdname, to_string=True)  # reload symbol file
                 msg(out)
                 if opt == "-c":
                     peda.execute("continue")
@@ -3916,7 +3879,7 @@ class PEDACmd(object):
             for symname in sorted(symbols):
                 if "plt" not in symname: continue
                 if name in symname:  # fixme(longld) bounds checking?
-                    line = peda.execute_redirect("break %s" % symname)
+                    line = peda.execute("break %s" % symname, to_string=True)
                     msg("%s (%s)" % (line.strip("\n"), symname))
         return
 
@@ -3971,8 +3934,8 @@ class PEDACmd(object):
             msg("'%s' re-activated" % function)
             return
 
-        if "void" not in peda.execute_redirect("p %s" % bnum):
-            out = peda.execute_redirect("info breakpoints %s" % bnum)
+        if "void" not in peda.execute("p %s" % bnum, to_string=True):
+            out = peda.execute("info breakpoints %s" % bnum, to_string=True)
             if out:
                 msg("Already deactivated '%s'" % function)
                 msg(out)
@@ -4000,7 +3963,7 @@ class PEDACmd(object):
         tmpfd.flush()
         peda.execute("source %s" % tmpfd.name)
         tmpfd.close()
-        out = peda.execute_redirect("info breakpoints %s" % bnum)
+        out = peda.execute("info breakpoints %s" % bnum, to_string=True)
         if out:
             msg("'%s' deactivated" % function)
             msg(out)
@@ -4017,7 +3980,7 @@ class PEDACmd(object):
 
         self.deactive("ptrace", action)
 
-        if not action and "void" in peda.execute_redirect("p $deactive_ptrace_bnum"):
+        if not action and "void" in peda.execute("p $deactive_ptrace_bnum", to_string=True):
             # cannot deactive vi plt entry, try syscall method
             msg("Try to patch 'ptrace' via syscall")
             peda.execute("catch syscall ptrace")
@@ -4035,7 +3998,7 @@ class PEDACmd(object):
             tmpfd.flush()
             peda.execute("source %s" % tmpfd.name)
             tmpfd.close()
-            out = peda.execute_redirect("info breakpoints $deactive_ptrace_bnum")
+            out = peda.execute("info breakpoints $deactive_ptrace_bnum", to_string=True)
             if out:
                 msg("'ptrace' deactivated")
                 msg(out)
@@ -4283,7 +4246,7 @@ class PEDACmd(object):
 
         started = 0
         for e in entries:
-            out = peda.execute_redirect("tbreak %s" % e)
+            out = peda.execute("tbreak %s" % e, to_string=True)
             if out and "breakpoint" in out:
                 peda.execute("run %s" % ' '.join(arg))
                 started = 1
@@ -4295,7 +4258,7 @@ class PEDACmd(object):
                 peda.execute("starti %s" % ' '.join(arg))
             elf_entry = peda.elfentry()
             if elf_entry:
-                out = peda.execute_redirect("tbreak *%s" % elf_entry)
+                out = peda.execute("tbreak *%s" % elf_entry, to_string=True)
 
             if is_pie:
                 peda.execute("continue")
@@ -4578,10 +4541,10 @@ class PEDACmd(object):
                             stats.setdefault(code, 0)
                             stats[code] += 1
                             break
-                    peda.execute_redirect("stepi", silent=True)
+                    peda.execute("stepi", to_string=True)
                 else:
-                    peda.execute_redirect("stepi", silent=True)
-                    peda.execute_redirect("finish", silent=True)
+                    peda.execute("stepi", to_string=True)
+                    peda.execute("finish", to_string=True)
                 count -= 1
                 total += 1
         except:
@@ -4928,7 +4891,7 @@ class PEDACmd(object):
                     if addr >= start and addr < end:
                         maps += [(start, end, perm, name)]
 
-        if peda.is_target_remote() and 'ENABLE=' in peda.execute_redirect('maintenance packet Qqemu.sstepbits'):
+        if peda.is_target_remote() and 'ENABLE=' in peda.execute('maintenance packet Qqemu.sstepbits', to_string=True):
             warning_msg('QEMU target detected - vmmap result might not be accurate')
         if maps is not None and len(maps) > 0:
             l = 10 if peda.intsize() == 4 else 18
@@ -5613,7 +5576,7 @@ class PEDACmd(object):
         """
         (address, ) = normalize_argv(arg, 1)
 
-        exec_wrapper = peda.execute_redirect("show exec-wrapper").split('"')[1]
+        exec_wrapper = peda.execute("show exec-wrapper", to_string=True).split('"')[1]
         if exec_wrapper != "":
             peda.execute("unset exec-wrapper")
 
@@ -5629,7 +5592,7 @@ class PEDACmd(object):
         # set value at address => 0xcc
         peda.execute("set *0x%x = 0x%x" % (address, 0xcccccccc))
         peda.execute("set *0x%x = 0x%x" % (address + 4, 0xcccccccc))
-        out = peda.execute_redirect("continue")
+        out = peda.execute("continue", to_string=True)
         text = "NX test at %s: " % (to_address(address) if address != sp else "stack")
 
         if out:
@@ -6045,7 +6008,7 @@ class PEDACmd(object):
         if self._is_running() and address == peda.getreg("pc"):
             write_mode = exec_mode = 1
 
-        line = peda.execute_redirect("show write")
+        line = peda.execute("show write", to_string=True)
         if line and "on" in line.split()[-1]:
             write_mode = 1
 
@@ -6359,7 +6322,7 @@ class PEDACmd(object):
         if inst:
             if "ret" in inst:
                 sp = peda.getreg("sp")
-                value = int(peda.execute_redirect("x/wx 0x%x" % sp).split(":")[1].strip(), 16)
+                value = int(peda.execute("x/wx 0x%x" % sp, to_string=True).split(":")[1].strip(), 16)
         if value is None:
             self._missing_argument()
 
@@ -6403,7 +6366,7 @@ class PEDACmd(object):
 
         # backtrace
         msg("[%s]" % "backtrace (innermost 10 frames)".center(78, "-"), "blue")
-        msg(peda.execute_redirect("backtrace 10"))
+        msg(peda.execute("backtrace 10", to_string=True))
 
         msg("[%s]\n" % "END OF CRASH DUMP".center(78, "-"))
         config.Option.set("_teefd", "")
