@@ -769,8 +769,8 @@ class PEDA(object):
             if self.getpid() and not self.is_address(address - backward + i):
                 continue
 
-            code = self.execute(
-                "disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1)), to_string=True)
+            code = self.execute("disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1)),
+                                to_string=True)
             if code and ("%x" % address) in code:
                 lines = code.strip().splitlines()[1:-1]
                 if len(lines) > count and "(bad)" not in " ".join(lines):
@@ -892,8 +892,8 @@ class PEDA(object):
         if search == "":
             search_data = 0
 
-        out = execute_external_command(
-            "%s -M intel -z --prefix-address -d '%s' | grep '%s'" % (config.OBJDUMP, filename, search))
+        out = execute_external_command("%s -M intel -z --prefix-address -d '%s' | grep '%s'" %
+                                       (config.OBJDUMP, filename, search))
 
         for line in out.splitlines():
             if not line: continue
@@ -2910,8 +2910,8 @@ class PEDA(object):
             result = []
             for (start, end, hname, libname) in soheaders:
                 start, end = to_int(start), to_int(end)
-                result += [(start, end, hname,
-                            os.path.realpath(libname))]  # tricky, return the realpath version of libraries
+                result += [(start, end, hname, os.path.realpath(libname))
+                           ]  # tricky, return the realpath version of libraries
             return result
 
         elfinfo = {}
@@ -3558,8 +3558,8 @@ class PEDACmd(object):
                 buf = bytes_[:linelen]
                 hexbytes = " ".join(["%02x" % ord(c) for c in bytes_iterator(buf)])
                 asciibytes = "".join([ascii_char(c) for c in bytes_iterator(buf)])
-                text += '%s : %s  %s\n' % (blue(to_address(address + i * linelen)), hexbytes.ljust(linelen * 3),
-                                           asciibytes)
+                text += '%s : %s  %s\n' % (blue(to_address(address + i * linelen)), hexbytes.ljust(
+                    linelen * 3), asciibytes)
                 bytes_ = bytes_[linelen:]
                 i += 1
             pager(text)
@@ -5154,12 +5154,12 @@ class PEDACmd(object):
             belongto = "binary"
 
         if option == "pointer":
-            msg("Searching for pointers on: %s pointed to: %s, this may take minutes to complete..." % (searchfor,
-                                                                                                        belongto))
+            msg("Searching for pointers on: %s pointed to: %s, this may take minutes to complete..." %
+                (searchfor, belongto))
             result = peda.search_pointer(searchfor, belongto)
         if option == "address":
-            msg("Searching for addresses on: %s belong to: %s, this may take minutes to complete..." % (searchfor,
-                                                                                                        belongto))
+            msg("Searching for addresses on: %s belong to: %s, this may take minutes to complete..." %
+                (searchfor, belongto))
             result = peda.search_address(searchfor, belongto)
 
         text = peda.format_search_result(result, 0)
@@ -5442,8 +5442,8 @@ class PEDACmd(object):
             if not found: continue
 
             for m in found:
-                text += "0x%x: %s\n" % (start + m.start(), string_repr(
-                    mem[m.start():m.end()].strip(), show_quotes=False))
+                text += "0x%x: %s\n" % (start + m.start(), string_repr(mem[m.start():m.end()].strip(),
+                                                                       show_quotes=False))
 
         pager(text)
         return

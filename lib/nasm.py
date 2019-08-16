@@ -14,10 +14,12 @@ import os
 from utils import *
 import config
 
+
 class Nasm(object):
     """
     Wrapper class for assemble/disassemble using nasm/ndisassm
     """
+
     def __init__(self):
         pass
 
@@ -52,7 +54,7 @@ class Nasm(object):
             outfd.close()
             return bincode
         # reopen it so tempfile will not complain
-        open(outfd.name,'w').write('B00B')
+        open(outfd.name, 'w').write('B00B')
         return None
 
     @staticmethod
@@ -77,6 +79,7 @@ class Nasm(object):
 
         TODO: understand syscall numbers, socket call
         """
+
         def nasm2shellcode(asmcode):
             if not asmcode:
                 return ""
@@ -90,12 +93,12 @@ class Nasm(object):
                 if m:
                     (addr, bytes, code) = m.groups()
                     sc = '"%s"' % to_hexstr(codecs.decode(bytes, 'hex'))
-                    shellcode += [(sc, "0x"+addr, code)]
+                    shellcode += [(sc, "0x" + addr, code)]
 
             maxlen = max([len(x[0]) for x in shellcode])
             text = ""
             for (sc, addr, code) in shellcode:
-                text += "%s # %s:    %s\n" % (sc.ljust(maxlen+1), addr, code)
+                text += "%s # %s:    %s\n" % (sc.ljust(maxlen + 1), addr, code)
 
             return text
 

@@ -30,6 +30,7 @@ else:
     from urllib import urlencode
     pyversion = 2
 
+
 def _make_values_bytes(dict_):
     """Make shellcode in dictionaries bytes"""
     return {k: six.b(v) for k, v in dict_.items()}
@@ -236,11 +237,13 @@ shellcode_x86 = {"linux": shellcode_x86_linux, "bsd": shellcode_x86_bsd}
 
 SHELLCODES = {"x86": shellcode_x86}
 
+
 class Shellcode():
     """
     Simple wrapper for pre-defined shellcodes generation
     For complete and advanced shellcodes, Metasploit is recommended
     """
+
     def __init__(self, arch="x86", platform="linux"):
         if arch in SHELLCODES and platform in SHELLCODES[arch]:
             self.shellcodes = SHELLCODES[arch][platform].copy()
@@ -276,8 +279,8 @@ class Shellcode():
         if (not NOPS):
             NOPS = DEFAULT_NOPS
         sled = ""
-        for i in range(size,0,-1):
-            N = random.randint(0,len(NOPS)-1)
+        for i in range(size, 0, -1):
+            N = random.randint(0, len(NOPS) - 1)
             sled += NOPS[N]
         return sled
 
@@ -286,9 +289,9 @@ class Shellcode():
             return None
 
         if port is None:
-            port=16706
+            port = 16706
         if host is None:
-            host='127.127.127.127'
+            host = '127.127.127.127'
 
         shellcode = self.shellcodes[sctype]
         try:
@@ -300,11 +303,12 @@ class Shellcode():
             return shellcode
         except Exception as e:
             if config.Option.get("debug") == "on":
-                msg("Exception: %s" %e)
+                msg("Exception: %s" % e)
                 traceback.print_exc()
             return None
 
     """ search() and display() use the shell-storm API """
+
     def search(self, keyword):
         if keyword is None:
             return None
@@ -312,13 +316,13 @@ class Shellcode():
             msg("Connecting to shell-storm.org...")
             s = six.moves.http_client.HTTPConnection("shell-storm.org")
 
-            s.request("GET", "/api/?s="+str(keyword))
+            s.request("GET", "/api/?s=" + str(keyword))
             res = s.getresponse()
             read_result = res.read().decode('utf-8')
             data_l = [x for x in read_result.split('\n') if x]  # remove empty results
         except Exception as e:
             if config.Option.get("debug") == "on":
-                msg("Exception: %s" %e)
+                msg("Exception: %s" % e)
                 traceback.print_exc()
             error_msg("Cannot connect to shell-storm.org")
             return None
@@ -327,17 +331,11 @@ class Shellcode():
         for data in data_l:
             try:
                 desc = data.split("::::")
-                dico = {
-                         'ScAuthor': desc[0],
-                         'ScArch': desc[1],
-                         'ScTitle': desc[2],
-                         'ScId': desc[3],
-                         'ScUrl': desc[4]
-                       }
+                dico = {'ScAuthor': desc[0], 'ScArch': desc[1], 'ScTitle': desc[2], 'ScId': desc[3], 'ScUrl': desc[4]}
                 data_dl.append(dico)
             except Exception as e:
                 if config.Option.get("debug") == "on":
-                    msg("Exception: %s" %e)
+                    msg("Exception: %s" % e)
                     traceback.print_exc()
 
         return data_dl
@@ -354,7 +352,7 @@ class Shellcode():
             return None
 
         try:
-            s.request("GET", "/shellcode/files/shellcode-"+str(shellcodeId)+".php")
+            s.request("GET", "/shellcode/files/shellcode-" + str(shellcodeId) + ".php")
             res = s.getresponse()
             data = res.read().decode('utf-8').split("<pre>")[1].split("<body>")[0]
         except:
@@ -366,19 +364,16 @@ class Shellcode():
         data = data.replace("&lt;", "<")
         data = data.replace("&gt;", ">")
         return data
+
     #OWASP ZSC API Z3r0D4y.Com
-    def zsc(self,os,job,encode):
+    def zsc(self, os, job, encode):
         try:
             msg('Connection to OWASP ZSC API api.z3r0d4y.com')
-            params = urlencode({
-                    'api_name': 'zsc', 
-                    'os': os,
-                    'job': job,
-                    'encode': encode})
-            shellcode = urlopen("http://api.z3r0d4y.com/index.py?%s\n"%(str(params))).read()
+            params = urlencode({'api_name': 'zsc', 'os': os, 'job': job, 'encode': encode})
+            shellcode = urlopen("http://api.z3r0d4y.com/index.py?%s\n" % (str(params))).read()
             if pyversion is 3:
-                shellcode = str(shellcode,encoding='ascii')
-            return '\n"'+shellcode.replace('\n','')+'"\n'
+                shellcode = str(shellcode, encoding='ascii')
+            return '\n"' + shellcode.replace('\n', '') + '"\n'
         except:
             error_msg("Error while connecting to api.z3r0d4y.com ...")
             return None
