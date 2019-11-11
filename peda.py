@@ -4761,11 +4761,10 @@ class PEDACmd(object):
         try:
             if not hasattr(self, "source") or not hasattr(self, "filename") or filename != self.filename:
                 with open(filename) as source_file:
-                    self.source = source_file.read()
-                    self.source_lines = self.source.splitlines()
+                    self.source_lines = source_file.readlines()
                 self.filename = filename
         except Exception as e:
-            #    msg("Cannot display %s" % filename)
+            # msg("Cannot display %s" % filename)
             return
 
         msg(yellow(separator(" Source "), "light"))
