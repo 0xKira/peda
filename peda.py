@@ -4843,6 +4843,10 @@ class PEDACmd(object):
     def switch_context(self):
         """
         Switch context layout
+        Usage:
+            mode 0: register,code,stack
+            mode 1: register,source,stack
+            mode 2: register,code
         """
         opt = config.Option.get("context")
         if self.mode == 0:
