@@ -4069,7 +4069,7 @@ class PEDACmd(object):
                     text += blue(content, "light") + " = " + hex(value) + ", "
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s : %s\n" % (green(content, "light"), format_reference_chain(chain))
-            if text[-1] is not '(':
+            if text[-1] != '(':
                 text = text[:-2] + yellow(")", "light")
                 msg(yellow(text, "light"))
                 msg(text2.strip())
@@ -4145,7 +4145,7 @@ class PEDACmd(object):
                     text += blue(content, "light") + " = " + hex(value) + ", "
                     chain = peda.examine_mem_reference(value)
                     text2 += "%s: %s\n" % (green(content, "light"), format_reference_chain(chain))
-            if text[-1] is not '(':
+            if text[-1] != '(':
                 text = text[:-2] + yellow(")", "light")
                 msg(yellow(text, "light"))
                 msg(text2.strip())
