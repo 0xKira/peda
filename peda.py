@@ -421,6 +421,11 @@ class PEDA(object):
         Returns:
             - tuple of architecture info (arch (String), bits (Int))
         """
+        gdb_arch = self.execute('show architecture', to_string=True)
+        if 'i386:x86-64' in gdb_arch:
+            return ('elf64-x86-64', 64)
+        elif 'i386' in gdb_arch:
+            return ('elf32-i386', 32)
         arch = "unknown"
         bits = 32
         out = self.execute('maintenance info sections ?', to_string=True).splitlines()
@@ -6529,16 +6534,12 @@ for cmd in pedacmd.commands:
     if cmd not in ["help", "show", "set"]:
         Alias(cmd, "peda %s" % cmd, 0)
 
-
 # handle SIGINT / Ctrl-C
-def sigint_handler(signal, frame):
-    warning_msg("Got Ctrl+C / SIGINT!")
+def sigint_handler(event):
     gdb.execute("set logging off")
     peda.restore_user_command("all")
-    raise KeyboardInterrupt
 
-
-signal.signal(signal.SIGINT, sigint_handler)
+gdb.events.stop.connect(sigint_handler)
 
 # custom hooks
 peda.define_user_command("hook-stop", "peda context\n" "session autosave")
