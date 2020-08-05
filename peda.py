@@ -36,7 +36,6 @@ try:
 except ImportError:
     import pickle
 
-from skeleton import *
 from shellcode import *
 from utils import *
 import config
@@ -6065,46 +6064,6 @@ class PEDACmd(object):
             msg("hexify: \"%s\"" % to_hexstr(inst_code))
 
         return
-
-    ####################################
-    #   Payload/Shellcode Generation   #
-    ####################################
-    def skeleton(self, *arg):
-        """
-        Generate python exploit code template
-        Usage:
-            MYNAME type [file]
-                type = argv: local exploit via argument
-                type = env: local exploit via crafted environment (including NULL byte)
-                type = stdin: local exploit via stdin
-                type = remote: remote exploit via TCP socket
-        """
-        options = ["argv", "stdin", "env", "remote"]
-        (opt, outfile) = normalize_argv(arg, 2)
-        if opt not in options:
-            self._missing_argument()
-
-        pattern = cyclic_pattern(20000).decode('utf-8')
-        if opt == "argv":
-            code = ExploitSkeleton().skeleton_local_argv
-        if opt == "env":
-            code = ExploitSkeleton().skeleton_local_env
-        if opt == "stdin":
-            code = ExploitSkeleton().skeleton_local_stdin
-        if opt == "remote":
-            code = ExploitSkeleton().skeleton_remote_tcp
-
-        if outfile:
-            msg("Writing skeleton code to file \"%s\"" % outfile)
-            open(outfile, "w").write(code.strip("\n"))
-            os.chmod(outfile, 0o755)
-            open("pattern.txt", "w").write(pattern)
-        else:
-            msg(code)
-
-        return
-
-    skeleton.options = ["argv", "stdin", "env", "remote"]
 
     def shellcode(self, *arg):
         """
