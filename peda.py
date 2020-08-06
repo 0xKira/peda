@@ -4247,6 +4247,7 @@ class PEDACmd(object):
         Usage:
             MYNAME
         """
+        # FIXME: both hookpost-run and hookpost-start will be called
         entries = ["main", "__libc_start_main@plt"]
 
         for e in entries:
@@ -4261,6 +4262,7 @@ class PEDACmd(object):
             peda.save_user_command("hook-stop")  # disable first stop context
             peda.execute("starti %s" % ' '.join(arg))
             peda.restore_user_command("hook-stop")
+
         elf_entry = peda.elfentry()
         if elf_entry:
             peda.execute("tbreak *%s" % elf_entry)
