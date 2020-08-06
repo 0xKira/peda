@@ -4245,31 +4245,28 @@ class PEDACmd(object):
         Usage:
             MYNAME
         """
-        entries = ["main"]
-        entries += ["__libc_start_main@plt"]
+        entries = ["main", "__libc_start_main@plt"]
 
-        started = 0
         for e in entries:
             out = peda.execute("tbreak %s" % e, to_string=True)
             if out and "breakpoint" in out:
                 peda.execute("run %s" % ' '.join(arg))
-                started = 1
-                break
+                return
 
-        if not started:  # try ELF entry point or just "run" as the last resort
-            is_pie = peda.checksec()['PIE']
-            if is_pie:
-                peda.execute("starti %s" % ' '.join(arg))
-            elf_entry = peda.elfentry()
-            if elf_entry:
-                out = peda.execute("tbreak *%s" % elf_entry, to_string=True)
+        # try ELF entry point or just "run" as the last resort
+        is_pie = peda.checksec()['PIE']
+        if is_pie:
+            peda.save_user_command("hook-stop")  # disable first stop context
+            peda.execute("starti %s" % ' '.join(arg))
+            peda.restore_user_command("hook-stop")
+        elf_entry = peda.elfentry()
+        if elf_entry:
+            peda.execute("tbreak *%s" % elf_entry)
 
-            if is_pie:
-                peda.execute("continue")
-            else:
-                peda.execute("run %s" % ' '.join(arg))
-
-        return
+        if is_pie:
+            peda.execute("continue")
+        else:
+            peda.execute("run %s" % ' '.join(arg))
 
     # stepuntil()
     def stepuntil(self, *arg):
