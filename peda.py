@@ -2580,11 +2580,13 @@ class PEDA(object):
                 break
 
             result += [(v, t, vn)]
-            if v == vn or to_int(v) == to_int(vn):  # point to self
+            v_int = to_int(v)
+            vn_int = to_int(vn)
+            if v == vn or v_int == vn_int:  # point to self
                 break
-            if to_int(vn) is None:
+            if vn_int is None:
                 break
-            if to_int(vn) in [to_int(v) for (v, _, _) in result]:  # point back to previous value
+            if vn_int in [to_int(v) for (v, _, _) in result]:  # point back to previous value
                 break
             (v, t, vn) = self.examine_mem_value(to_int(vn))
 
@@ -3585,7 +3587,7 @@ class PEDACmd(object):
 
             if "is off" in out:
                 msg("ASLR is %s" % green("ON"))
-            if "is on" in out:
+            elif "is on" in out:
                 msg("ASLR is %s" % red("OFF"))
         else:
             option = option.strip().lower()
@@ -3654,21 +3656,21 @@ class PEDACmd(object):
         if not filename:
             filename = peda.get_config_filename("session")
 
-        if option == "save":
-            if peda.save_session(filename):
-                msg("Saved GDB session to file %s" % filename)
-            else:
-                msg("Failed to save GDB session")
+        if option == "autosave":
+            if config.Option.get("autosave") == "on":
+                peda.save_session(filename)
 
-        if option == "restore":
+        elif option == "restore":
             if peda.restore_session(filename):
                 msg("Restored GDB session from file %s" % filename)
             else:
                 msg("Failed to restore GDB session")
 
-        if option == "autosave":
-            if config.Option.get("autosave") == "on":
-                peda.save_session(filename)
+        elif option == "save":
+            if peda.save_session(filename):
+                msg("Saved GDB session to file %s" % filename)
+            else:
+                msg("Failed to save GDB session")
 
         return
 
@@ -5161,7 +5163,7 @@ class PEDACmd(object):
             msg("Searching for pointers on: %s pointed to: %s, this may take minutes to complete..." %
                 (searchfor, belongto))
             result = peda.search_pointer(searchfor, belongto)
-        if option == "address":
+        elif option == "address":
             msg("Searching for addresses on: %s belong to: %s, this may take minutes to complete..." %
                 (searchfor, belongto))
             result = peda.search_address(searchfor, belongto)
@@ -6258,7 +6260,7 @@ class PEDACmd(object):
             else:
                 msg("Failed to save process's snapshot")
 
-        if opt == "restore":
+        elif opt == "restore":
             if peda.restore_snapshot(filename):
                 msg("Restored process's snapshot from filename '%s'" % filename)
                 peda.execute("stop")
@@ -6357,14 +6359,14 @@ class PEDACmd(object):
             result = func(to_int(carg))
             result = to_hexstr(result)
 
-        if command == "list2hexstr":
+        elif command == "list2hexstr":
             if to_int(carg) is not None:
                 msg("Not a list")
                 return
             result = func(eval("%s" % carg))
             result = to_hexstr(result)
 
-        if command == "str2intlist":
+        elif command == "str2intlist":
             res = func(carg)
             result = "["
             for v in res:
