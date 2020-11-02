@@ -49,3 +49,8 @@ PEDA - Python Exploit Development Assistance for GDB
 ![source](http://i.imgur.com/SPBVT7q.png)
 ![syscall](http://i.imgur.com/AU0jixi.png)
 ![srop](http://i.imgur.com/l6F6k1N.png)
+
+## Credit
+
+- https://github.com/scwuaptx/peda
+- https://github.com/longld/peda
