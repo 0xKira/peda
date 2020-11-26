@@ -4758,22 +4758,21 @@ class PEDACmd(object):
         (count, ) = normalize_argv(arg, 1)
 
         sal = gdb.selected_frame().find_sal()
-        cur_line = sal.line
-        if cur_line == 0:
+        if sal.symtab is None:
             return
 
+        func_name = gdb.selected_frame().name()
+        cur_line = sal.line
         filename = sal.symtab.fullname()
-        try:
-            if not hasattr(self, "source") or not hasattr(self, "filename") or filename != self.filename:
-                with open(filename) as source_file:
-                    self.source_lines = source_file.readlines()
-                self.filename = filename
-        except Exception as e:
-            # msg("Cannot display %s" % filename)
+        if not os.path.exists(filename):
             return
+
+        if getattr(self, 'filename', '') != filename:
+            with open(filename) as f:
+                self.source_lines = f.readlines()
+            self.filename = filename
 
         msg(yellow(separator(" Source "), "light"))
-
         start = max(cur_line - count // 2, 0)
         end = min(cur_line + count // 2, len(self.source_lines))
         if (cur_line - start) < (count // 2):
@@ -4785,6 +4784,8 @@ class PEDACmd(object):
                 msg(green("==> {:<4} {}".format(number, line.rstrip("\n")), "light"))
             else:
                 msg("    {:<4} {}".format(number, line.rstrip("\n")))
+
+        msg(' {} at {}:{} '.format(yellow(func_name), green(sal.symtab.filename), cur_line).center(get_screen_width() + 20, ' '))  # 20 is hack for color
         return
 
     def context(self, *arg):
@@ -4799,7 +4800,7 @@ class PEDACmd(object):
         if opt is None:
             opt = config.Option.get("context")
         if opt == "all":
-            opt = "source,register,code,stack"
+            opt = "register,code,stack,source"
 
         context_map = {
             "register": self.context_register,

@@ -277,15 +277,19 @@ def trim(docstring):
     return '\n'.join(trimmed)
 
 
-def separator(title=""):
-    """
-    Return separator line with title
-    """
+def get_screen_width():
     try:
         _height, width = struct.unpack('hh', fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, '1234'))
     except:
         width = 78
-    return title.center(width, "─")
+    return width
+
+
+def separator(title=""):
+    """
+    Return separator line with title
+    """
+    return title.center(get_screen_width(), "─")
 
 
 def pager(text, pagesize=None):
