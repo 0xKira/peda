@@ -374,6 +374,22 @@ def normalize_argv(args, size=0):
     return args
 
 
+def u32(s):
+    return struct.unpack('<L', s)[0]
+
+
+def u64(s):
+    return struct.unpack('<Q', s)[0]
+
+
+def p32(n):
+    return struct.pack('<L', n)
+
+
+def p64(n):
+    return struct.pack('<Q', n)
+
+
 def to_hexstr(str_):
     """
     Convert a binary string to hex escape format

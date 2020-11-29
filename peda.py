@@ -445,8 +445,32 @@ class PEDA(object):
                 + intsize = 4/8 for 32/64-bits arch
         """
 
-        (arch, bits) = self.getarch()
+        (_, bits) = self.getarch()
         return bits // 8
+
+    def unpack(self, s, intsize):
+        """
+        Unpack a string to unsigned interger according to intsize
+
+        Returns:
+            - Unpack result (Int)
+        """
+        if intsize == 8:
+            return u64(s)
+        else:
+            return u32(s)
+
+    def pack(self, n, intsize):
+        """
+        Pack a unsigned interger to string according to intsize
+
+        Returns:
+            - Pack result (String)
+        """
+        if intsize == 8:
+            return p64(s)
+        else:
+            return p32(s)
 
     def getregs(self, reglist=None):
         """
@@ -2129,7 +2153,7 @@ class PEDA(object):
             intsize = self.intsize()
         value = self.readmem(address, intsize)
         if value:
-            value = to_int("0x" + codecs.encode(value[::-1], 'hex'))
+            value = self.unpack(value, intsize)
             return value
         else:
             return None
@@ -2419,9 +2443,8 @@ class PEDA(object):
             mem = self.dumpmem(start, end)
             if not mem:
                 continue
-            for i in range(0, len(mem), step):
-                search = "0x" + codecs.encode(mem[i:i + step][::-1], 'hex').decode('utf-8')
-                addr = to_int(search)
+            for i in range(0, len(mem) - step + 1, step):  # abandon unaligned bytes
+                addr = self.unpack(mem[i:i + step], step)
                 if self.is_address(addr, belongto_ranges):
                     result += [(start + i, addr)]
 
@@ -2450,9 +2473,8 @@ class PEDA(object):
             mem = self.dumpmem(start, end)
             if not mem:
                 continue
-            for i in range(0, len(mem), step):
-                search = "0x" + codecs.encode(mem[i:i + step][::-1], 'hex').decode('utf-8')
-                addr = to_int(search)
+            for i in range(0, len(mem) - step + 1, step):
+                addr = self.unpack(mem[i:i + step], step)
                 if self.is_address(addr):
                     (v, t, vn) = self.examine_mem_value(addr)
                     if t != 'value':
