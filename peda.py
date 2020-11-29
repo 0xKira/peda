@@ -2418,13 +2418,12 @@ class PEDA(object):
 
         return result
 
-    @memoized
-    def search_address(self, searchfor="stack", belongto="binary"):
+    def search_address(self, searchfor, belongto):
         """
         Search for all valid addresses in memory ranges
 
         Args:
-            - searchfor: memory region to search for addresses (String)
+            - searchfor: memory region to search for addresses (String or Tuple)
             - belongto: memory region that target addresses belong to (String)
 
         Returns:
@@ -2436,7 +2435,10 @@ class PEDA(object):
         if maps is None:
             return result
 
-        searchfor_ranges = self.get_vmmap(searchfor)
+        if isinstance(searchfor, str):
+            searchfor_ranges = self.get_vmmap(searchfor)
+        else:
+            searchfor_ranges = [(*searchfor, None, None)]
         belongto_ranges = self.get_vmmap(belongto)
         step = self.intsize()
         for (start, end, _, _) in searchfor_ranges[::-1]:  # dirty trick, to search in rw-p mem first
@@ -2450,13 +2452,12 @@ class PEDA(object):
 
         return result
 
-    @memoized
-    def search_pointer(self, searchfor="stack", belongto="binary"):
+    def search_pointer(self, searchfor, belongto):
         """
         Search for all valid pointers in memory ranges
 
         Args:
-            - searchfor: memory region to search for pointers (String)
+            - searchfor: memory region to search for pointers (String or Tuple)
             - belongto: memory region that pointed addresses belong to (String)
 
         Returns:
@@ -2466,7 +2467,10 @@ class PEDA(object):
         search_result = []
         result = []
         maps = self.get_vmmap()
-        searchfor_ranges = self.get_vmmap(searchfor)
+        if isinstance(searchfor, str):
+            searchfor_ranges = self.get_vmmap(searchfor)
+        else:
+            searchfor_ranges = [(*searchfor, None, None)]
         belongto_ranges = self.get_vmmap(belongto)
         step = self.intsize()
         for (start, end, _, _) in searchfor_ranges[::-1]:
@@ -5171,17 +5175,21 @@ class PEDACmd(object):
         Search for all addresses/references to addresses which belong to a memory range
         Usage:
             MYNAME address searchfor belongto
+            MYNAME address start end belongto
             MYNAME pointer searchfor belongto
+            MYNAME pointer start end belongto
         """
-        (option, searchfor, belongto) = normalize_argv(arg, 3)
+        (option, start, end, belongto) = normalize_argv(arg, 4)
         if option is None:
             self._missing_argument()
+        if belongto is None:
+            (option, searchfor, belongto) = normalize_argv(arg, 3)
+            if belongto is None:
+                self._missing_argument()
+        else:
+            searchfor = (start, end)
 
         result = []
-        if searchfor is None:
-            searchfor = "stack"
-        if belongto is None:
-            belongto = "binary"
 
         if option == "pointer":
             msg("Searching for pointers on: %s pointed to: %s, this may take minutes to complete..." %
