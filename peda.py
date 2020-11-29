@@ -79,6 +79,7 @@ class PEDA(object):
 
     def __init__(self):
         self.SAVED_COMMANDS = {}  # saved GDB user's commands
+        self.enabled = True
 
     ####################################
     #   GDB Interaction / Misc Utils   #
@@ -3257,6 +3258,20 @@ class PEDACmd(object):
             #raise Exception(text)
         else:
             return pid
+
+    def enable(self):
+        """
+        Enable peda display
+        """
+        peda.restore_user_command("all")
+        peda.enabled = True
+
+    def disable(self):
+        """
+        Disable peda display
+        """
+        peda.save_user_command("hook-stop")
+        peda.enabled = False
 
     def reload(self, *arg):
         """
@@ -6521,13 +6536,14 @@ Alias("pead", "peda")  # just for auto correction
 for cmd in pedacmd.commands:
     func = getattr(pedacmd, cmd)
     func.__func__.__doc__ = func.__doc__.replace("MYNAME", cmd)
-    if cmd not in ["help", "show", "set"]:
+    if cmd not in ["help", "show", "set", "enable", "disable"]:
         Alias(cmd, "peda %s" % cmd, 0)
 
+# XXX: is this really needed only for some "useless" commands
 # handle SIGINT / Ctrl-C
 def sigint_handler(event):
-    gdb.execute("set logging off")
-    peda.restore_user_command("all")
+    if peda.enabled:
+        peda.restore_user_command("all")
 
 gdb.events.stop.connect(sigint_handler)
 
