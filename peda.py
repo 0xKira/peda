@@ -3664,19 +3664,18 @@ class PEDACmd(object):
             MYNAME address (calculate from current $SP to address)
             MYNAME address1 address2
         """
-        (start, end) = normalize_argv(arg, 2)
-        if to_int(start) is None or (to_int(end) is None and not self._is_running()):
+        (end, start) = normalize_argv(arg, 2)
+        if to_int(end) is None or (to_int(start) is None and not self._is_running()):
             self._missing_argument()
 
         sp = None
-        if end is None:
+        if start is None:
             sp = peda.getreg("sp")
-            end = start
             start = sp
 
         dist = end - start
         text = "From %#x%s to %#x: " % (start, " (SP)" if start == sp else "", end)
-        text += "%d bytes, %d dwords%s" % (dist, dist // 4, " (+%d bytes)" % (dist % 4) if (dist % 4 != 0) else "")
+        text += "%#x bytes, %d qwords%s" % (dist, dist // 8, " (+%d bytes)" % (dist % 8) if (dist % 8 != 0) else "")
         msg(text)
 
         return
