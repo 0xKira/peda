@@ -2336,8 +2336,7 @@ class PEDA(object):
             search = re.escape(search)
             p = re.compile(search)
 
-        found = list(p.finditer(mem))
-        for m in found:
+        for m in p.finditer(mem):
             index = 1
             if m.start() == m.end() and m.lastindex:
                 index = m.lastindex + 1
