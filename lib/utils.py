@@ -386,9 +386,9 @@ def to_hex(num):
     Convert a number to hex format
     """
     if num < 0:
-        return "-0x%x" % (-num)
+        return "-%#x" % (-num)
     else:
-        return "0x%x" % num
+        return "%#x" % num
 
 
 def to_address(num):
@@ -398,9 +398,9 @@ def to_address(num):
     if num < 0:
         return to_hex(num)
     if num > 0xffffffff:  # 64 bit
-        return "0x%016x" % num
+        return "%#016x" % num
     else:
-        return "0x%08x" % num
+        return "%#08x" % num
 
 
 def to_int(val):
@@ -427,7 +427,7 @@ def hex2str(hexnum, intsize=4):
     """
     if not isinstance(hexnum, six.string_types):
         nbits = intsize * 8
-        hexnum = "0x%x" % ((hexnum + (1 << nbits)) % (1 << nbits))
+        hexnum = "%#x" % ((hexnum + (1 << nbits)) % (1 << nbits))
     s = hexnum[2:]
     if len(s) % 2 != 0:
         s = "0" + s

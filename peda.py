@@ -519,7 +519,7 @@ class PEDA(object):
             cmd = "t" + cmd
 
         if to_int(location) is not None:
-            return peda.execute("%s *0x%x" % (cmd, to_int(location)))
+            return peda.execute("%s *%#x" % (cmd, to_int(location)))
         else:
             return peda.execute("%s %s" % (cmd, location))
 
@@ -635,7 +635,7 @@ class PEDA(object):
                 if what:
                     location = what
                 else:
-                    location = "*0x%x" % addr
+                    location = "*%#x" % addr
                 text = "%s %s" % (cmd, location)
                 if commands:
                     if "stop only" not in commands:
@@ -796,7 +796,7 @@ class PEDA(object):
         Returns:
             - tuple of (address(Int), code(String))
         """
-        out = self.execute("x/i 0x%x" % address, to_string=True)
+        out = self.execute("x/i %#x" % address, to_string=True)
         if not out:
             return None
 
@@ -820,7 +820,7 @@ class PEDA(object):
             - - list of tuple (address(Int), code(String))
         """
         result = []
-        code = self.execute("x/%di 0x%x" % (count + 1, address), to_string=True)
+        code = self.execute("x/%di %#x" % (count + 1, address), to_string=True)
         if not code:
             return None
 
@@ -851,7 +851,7 @@ class PEDA(object):
             return None
 
         # check if address is reachable
-        if not self.execute("x/x 0x%x" % pc, to_string=True):
+        if not self.execute("x/x %#x" % pc, to_string=True):
             return None
 
         prev_code = self.prev_inst(pc, count // 2 - 1)
@@ -862,9 +862,9 @@ class PEDA(object):
         if start == pc:
             count = count // 2
 
-        code = self.execute("x/%di 0x%x" % (count, start), to_string=True)
-        if "0x%x" % pc not in code:
-            code = self.execute("x/%di 0x%x" % (count // 2, pc), to_string=True)
+        code = self.execute("x/%di %#x" % (count, start), to_string=True)
+        if "%#x" % pc not in code:
+            code = self.execute("x/%di %#x" % (count // 2, pc), to_string=True)
 
         return code.rstrip()
 
@@ -907,7 +907,7 @@ class PEDA(object):
             # update with runtime values
             if addr < elfbase:
                 addr += elfbase
-            out = self.execute("x/i 0x%x" % addr, to_string=True)
+            out = self.execute("x/i %#x" % addr, to_string=True)
             if out:
                 line = out
                 p = re.compile("\s*(0x[^ ]*).*?:\s*([^ ]*)\s*(.*)")
@@ -1152,12 +1152,12 @@ class PEDA(object):
             for (addr, inst) in prev_insts[::-1]:
                 if "bl" in inst.strip().split()[0]:
                     break
-                code = "0x%x:%s\n" % (addr, inst) + code
+                code = "%#x:%s\n" % (addr, inst) + code
         else:
             for (addr, inst) in prev_insts[::-1]:
                 if "call" in inst.strip().split()[0]:
                     break
-                code = "0x%x:%s\n" % (addr, inst) + code
+                code = "%#x:%s\n" % (addr, inst) + code
 
         if "aarch64" in arch:
             args = self._get_function_args_aarch64(code, argc)
@@ -1420,7 +1420,7 @@ class PEDA(object):
         if value is None or eflags[flags[flagname]] != value:
             reg_eflags = self.getreg("eflags")
             reg_eflags ^= eval("EFLAGS_%s" % flags[flagname])
-            result = self.execute("set $eflags = 0x%x" % reg_eflags)
+            result = self.execute("set $eflags = %#x" % reg_eflags)
             return result
 
         return True
@@ -1480,7 +1480,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute("x/i 0x%x" % pc, to_string=True)
+            inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1538,7 +1538,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute("x/i 0x%x" % pc, to_string=True)
+            inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1606,7 +1606,7 @@ class PEDA(object):
 
         if not inst:
             pc = self.getreg("pc")
-            inst = self.execute("x/i 0x%x" % pc, to_string=True)
+            inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
                 return None
 
@@ -1725,10 +1725,10 @@ class PEDA(object):
 
         # restore registers, SP will be the last one
         for (r, v) in snapshot["reg"].items():
-            self.execute("set $%s = 0x%x" % (r, v))
+            self.execute("set $%s = %#x" % (r, v))
             if r.endswith("sp"):
                 sp = v
-        self.execute("set $sp = 0x%x" % sp)
+        self.execute("set $sp = %#x" % sp)
 
         return True
 
@@ -2058,7 +2058,7 @@ class PEDA(object):
         Returns:
             - asm code (String)
         """
-        code = self.execute("x/%di 0x%x" % (count, address), to_string=True)
+        code = self.execute("x/%di %#x" % (count, address), to_string=True)
         if code:
             return code.rstrip()
         else:
@@ -2078,7 +2078,7 @@ class PEDA(object):
         mem = None
         logfd = tmpfile(is_binary_file=True)
         logname = logfd.name
-        out = self.execute("dump memory %s 0x%x 0x%x" % (logname, start, end), to_string=True)
+        out = self.execute("dump memory %s %#x %#x" % (logname, start, end), to_string=True)
         if out is None:
             return None
         else:
@@ -2106,7 +2106,7 @@ class PEDA(object):
 
         # failed to dump, use slow x/gx way
         mem = ""
-        out = self.execute("x/%dbx 0x%x" % (size, address), to_string=True)
+        out = self.execute("x/%dbx %#x" % (size, address), to_string=True)
         if out:
             for line in out.splitlines():
                 bytes = line.split(":\t")[-1].split()
@@ -2166,11 +2166,11 @@ class PEDA(object):
             tmp = tmpfile(is_binary_file=True)
             tmp.write(buf)
             tmp.flush()
-            out = self.execute("restore %s binary 0x%x" % (tmp.name, address), to_string=True)
+            out = self.execute("restore %s binary %#x" % (tmp.name, address), to_string=True)
             tmp.close()
         if not out:  # try the slow way
             for i in range(len(buf)):
-                if not self.execute("set {char}0x%x = 0x%x" % (address + i, ord(buf[i]))):
+                if not self.execute("set {char}%#x = %#x" % (address + i, ord(buf[i]))):
                     return i
             return i + 1
         elif "error" in out:  # failed to write the whole buf, find written byte
@@ -2479,11 +2479,11 @@ class PEDA(object):
         """
 
         def examine_data(value, bits=32):
-            out = self.execute("x/%sx 0x%x" % ("g" if bits == 64 else "w", value), to_string=True)
+            out = self.execute("x/%sx %#x" % ("g" if bits == 64 else "w", value), to_string=True)
             if out:
                 v = out.split(":\t")[-1].strip()
                 if is_printable(int2hexstr(to_int(v), bits // 8)):
-                    out = self.execute("x/s 0x%x" % value, to_string=True)
+                    out = self.execute("x/s %#x" % value, to_string=True)
             return out
 
         result = (None, None, None)
@@ -3077,7 +3077,7 @@ class PEDA(object):
 
         result = []
         for (a, v) in candidates:
-            asmcode = self.execute("disassemble 0x%x, 0x%x" % (a, a + (len(v) // 2)), to_string=True)
+            asmcode = self.execute("disassemble %#x, %#x" % (a, a + (len(v) // 2)), to_string=True)
             if asmcode:
                 asmcode = "\n".join(asmcode.splitlines()[1:-1])
                 matches = re.findall(".*:([^\n]*)", asmcode)
@@ -3608,7 +3608,7 @@ class PEDACmd(object):
         if m:
             addr = peda.parse_and_eval(m.group(1))
             if to_int(addr):
-                text += "[0x%x]: " % to_int(addr)
+                text += "[%#x]: " % to_int(addr)
 
         out = peda.parse_and_eval(exp)
         if to_int(out):
@@ -3635,7 +3635,7 @@ class PEDACmd(object):
             start = sp
 
         dist = end - start
-        text = "From 0x%x%s to 0x%x: " % (start, " (SP)" if start == sp else "", end)
+        text = "From %#x%s to %#x: " % (start, " (SP)" if start == sp else "", end)
         text += "%d bytes, %d dwords%s" % (dist, dist // 4, " (+%d bytes)" % (dist % 4) if (dist % 4 != 0) else "")
         msg(text)
 
@@ -3931,7 +3931,7 @@ class PEDACmd(object):
             self._missing_argument()
 
         if to_int(function):
-            function = "0x%x" % function
+            function = "%#x" % function
 
         bnum = "$deactive_%s_bnum" % function
         if action and "del" in action:
@@ -3955,7 +3955,7 @@ class PEDACmd(object):
             if not symbol:
                 warning_msg("cannot retrieve info of function '%s'" % function)
                 return
-            peda.execute("break *0x%x" % symbol[function + "@plt"])
+            peda.execute("break *%#x" % symbol[function + "@plt"])
 
         else:  # addressed function
             peda.execute("break *%s" % function)
@@ -4197,7 +4197,7 @@ class PEDACmd(object):
         if to_int(address) is None:
             peda.execute("tbreak %s" % address)
         else:
-            peda.execute("tbreak *0x%x" % address)
+            peda.execute("tbreak *%#x" % address)
         pc = peda.getreg("pc")
         if pc is None:
             peda.execute("run")
@@ -4215,7 +4215,7 @@ class PEDACmd(object):
         if to_int(address) is None:
             self._missing_argument()
 
-        peda.execute("set $pc = 0x%x" % address)
+        peda.execute("set $pc = %#x" % address)
         peda.execute("stop")
         return
 
@@ -4237,7 +4237,7 @@ class PEDACmd(object):
             warning_msg("failed to get next instructions")
             return
         last_addr = next_code[-1][0]
-        peda.execute("set $pc = 0x%x" % last_addr)
+        peda.execute("set $pc = %#x" % last_addr)
         peda.execute("stop")
         return
 
@@ -4346,11 +4346,11 @@ class PEDACmd(object):
         fnames = [""]
         if funcs:
             if to_int(funcs):
-                funcs = "0x%x" % funcs
+                funcs = "%#x" % funcs
             fnames = funcs.replace(",", " ").split()
         for (idx, fn) in enumerate(fnames):
             if to_int(fn):
-                fnames[idx] = "0x%x" % to_int(fn)
+                fnames[idx] = "%#x" % to_int(fn)
 
         inverse = 0
         for (idx, fn) in enumerate(fnames):
@@ -4463,7 +4463,7 @@ class PEDACmd(object):
             if re.search("j[^m]", code.split(":\t")[-1].split()[0]):
                 prev_insts = peda.prev_inst(peda.getreg("pc"))
                 if prev_insts:
-                    prev_code = "0x%x:%s" % prev_insts[0]
+                    prev_code = "%#x:%s" % prev_insts[0]
                     msg("%s%s%s" % (" " * (prev_depth - 1), " dep:%02d    " % (prev_depth - 1), prev_code), teefd=logfd)
 
             text = "%s%s%s" % (" " * (prev_depth - 1), " dep:%02d " % (prev_depth - 1), code.strip())
@@ -4604,7 +4604,7 @@ class PEDACmd(object):
         if peda.is_address(pc):
             inst = peda.get_disasm(pc)
         else:  # invalid $PC
-            msg("Invalid $PC address: 0x%x" % pc, "red")
+            msg("Invalid $PC address: %#x" % pc, "red")
             return
 
         (arch, bits) = peda.getarch()
@@ -4640,7 +4640,7 @@ class PEDACmd(object):
                     code = code.splitlines()
                     pc_idx = 999
                     for (idx, line) in enumerate(code):
-                        if ("0x%x" % pc) in line.split(":")[0]:
+                        if ("%#x" % pc) in line.split(":")[0]:
                             pc_idx = idx
                         if idx <= pc_idx:
                             text += line + "\n"
@@ -4678,7 +4678,7 @@ class PEDACmd(object):
                     code = code.splitlines()
                     pc_idx = 999
                     for (idx, line) in enumerate(code):
-                        if ("0x%x" % pc) in line.split(":")[0]:
+                        if ("%#x" % pc) in line.split(":")[0]:
                             pc_idx = idx
                         if idx <= pc_idx:
                             text += line + "\n"
@@ -4745,7 +4745,7 @@ class PEDACmd(object):
         if peda.is_address(sp):
             self.telescope(sp, count)
         else:
-            msg("Invalid $SP address: 0x%x" % sp, "red")
+            msg("Invalid $SP address: %#x" % sp, "red")
 
         return
 
@@ -4957,7 +4957,7 @@ class PEDACmd(object):
             data *= (end_address - address + 1) // len(data)
         bytes_ = peda.writemem(address, data)
         if bytes_ >= 0:
-            msg("Written %d bytes to 0x%x" % (bytes_, address))
+            msg("Written %d bytes to %#x" % (bytes_, address))
         else:
             warning_msg("Failed to patch memory, try 'set write on' first for offline patching")
         return
@@ -4974,7 +4974,7 @@ class PEDACmd(object):
         if end is not None and to_int(end):
             if end < start:
                 start, end = end, start
-            ret = peda.execute("dump memory %s 0x%x 0x%x" % (filename, start, end))
+            ret = peda.execute("dump memory %s %#x %#x" % (filename, start, end))
             if not ret:
                 warning_msg("failed to dump memory")
             else:
@@ -5022,7 +5022,7 @@ class PEDACmd(object):
                 mem = mem[:size]
             bytes = peda.writemem(address, mem)
             if bytes > 0:
-                msg("Written %d bytes to 0x%x" % (bytes, address))
+                msg("Written %d bytes to %#x" % (bytes, address))
             else:
                 warning_msg("failed to load filename to memory")
         else:
@@ -5056,7 +5056,7 @@ class PEDACmd(object):
             msg("--- mem: %s -> %s" % (arg[0], arg[1]), "green", "bold")
             msg("+++ filename: %s" % arg[2], "blue", "bold")
             for (addr, bytes_) in result.items():
-                msg("@@ 0x%x @@" % addr, "red")
+                msg("@@ %#x @@" % addr, "red")
                 line_1 = "- "
                 line_2 = "+ "
                 for (mem_val, file_val) in bytes_:
@@ -5113,7 +5113,7 @@ class PEDACmd(object):
             msg("Searching for %s in: %s ranges" % (repr(pattern), mapname))
             result = peda.searchmem_by_range(mapname, pattern)
         else:
-            msg("Searching for %s in range: 0x%x - 0x%x" % (repr(pattern), start, end))
+            msg("Searching for %s in range: %#x - %#x" % (repr(pattern), start, end))
             result = peda.searchmem(start, end, pattern)
 
         text = peda.format_search_result(result)
@@ -5207,7 +5207,7 @@ class PEDACmd(object):
 
         step = peda.intsize()
         if not peda.is_address(address):  # cannot determine address
-            msg("Invalid $SP address: 0x%x" % address, "red")
+            msg("Invalid $SP address: %#x" % address, "red")
             return
 
         result = []
@@ -5256,7 +5256,7 @@ class PEDACmd(object):
                     text += "%s " % green(FLAGS_TEXT[i].lower())
 
             eflags = peda.getreg("eflags")
-            msg("%s: 0x%x (%s)" % (green("EFLAGS"), eflags, text.strip()))
+            msg("%s: %#x (%s)" % (green("EFLAGS"), eflags, text.strip()))
 
         elif option == "set":
             peda.set_eflags(flagname, True)
@@ -5296,7 +5296,7 @@ class PEDACmd(object):
                     text += "%s " % green(FLAGS_TEXT[i].lower())
 
             cpsr = peda.getreg("cpsr")
-            msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
+            msg("%s: %#x (%s)" % (green("CPSR"), cpsr, text.strip()))
 
         return
 
@@ -5327,7 +5327,7 @@ class PEDACmd(object):
                     text += "%s " % green(FLAGS_TEXT[i].lower())
 
             cpsr = peda.getreg("cpsr")
-            msg("%s: 0x%x (%s)" % (green("CPSR"), cpsr, text.strip()))
+            msg("%s: %#x (%s)" % (green("CPSR"), cpsr, text.strip()))
 
         return
 
@@ -5404,7 +5404,7 @@ class PEDACmd(object):
                 text += "Virtual memory mapping:\n"
                 text += green("Start : %s\n" % to_address(start))
                 text += green("End   : %s\n" % to_address(end))
-                text += yellow("Offset: 0x%x\n" % (address - start))
+                text += yellow("Offset: %#x\n" % (address - start))
                 text += red("Perm  : %s\n" % perm)
                 text += blue("Name  : %s" % name)
         msg(text)
@@ -5451,7 +5451,7 @@ class PEDACmd(object):
             if not found: continue
 
             for m in found:
-                text += "0x%x: %s\n" % (start + m.start(), string_repr(mem[m.start():m.end()].strip(),
+                text += "%#x: %s\n" % (start + m.start(), string_repr(mem[m.start():m.end()].strip(),
                                                                        show_quotes=False))
 
         pager(text)
@@ -5495,10 +5495,10 @@ class PEDACmd(object):
             warning_msg("%s not found, did you specify the FILE to debug?" % (name if name else "headers"))
         elif len(result) == 1:
             (k, (start, end, type)) = list(result.items())[0]
-            msg("%s: 0x%x - 0x%x (%s)" % (k, start, end, type))
+            msg("%s: %#x - %#x (%s)" % (k, start, end, type))
         else:
             for (k, (start, end, type)) in sorted(result.items(), key=lambda x: x[1]):
-                msg("%s = 0x%x" % (k, start))
+                msg("%s = %#x" % (k, start))
         return
 
     # readelf_header(), elfheader_solib()
@@ -5524,10 +5524,10 @@ class PEDACmd(object):
             warning_msg("%s or %s not found" % (filename, hname))
         elif len(result) == 1:
             (k, (start, end, type)) = list(result.items())[0]
-            msg("%s: 0x%x - 0x%x (%s)" % (k, start, end, type))
+            msg("%s: %#x - %#x (%s)" % (k, start, end, type))
         else:
             for (k, (start, end, type)) in sorted(result.items(), key=lambda x: x[1]):
-                msg("%s = 0x%x" % (k, start))
+                msg("%s = %#x" % (k, start))
         return
 
     # elfsymbol()
@@ -5551,7 +5551,7 @@ class PEDACmd(object):
             else:
                 msg("Detail symbol info")
             for (k, v) in sorted(result.items(), key=lambda x: x[1]):
-                msg("%s = %s" % (k, "0x%x" % v if v else repr(v)))
+                msg("%s = %s" % (k, "%#x" % v if v else repr(v)))
         return
 
     # checksec()
@@ -5597,10 +5597,10 @@ class PEDACmd(object):
         sp = peda.getreg("sp")
         if not address:
             address = sp
-        peda.execute("set $pc = 0x%x" % address)
+        peda.execute("set $pc = %#x" % address)
         # set value at address => 0xcc
-        peda.execute("set *0x%x = 0x%x" % (address, 0xcccccccc))
-        peda.execute("set *0x%x = 0x%x" % (address + 4, 0xcccccccc))
+        peda.execute("set *%#x = %#x" % (address, 0xcccccccc))
+        peda.execute("set *%#x = %#x" % (address + 4, 0xcccccccc))
         out = peda.execute("continue", to_string=True)
         text = "NX test at %s: " % (to_address(address) if address != sp else "stack")
 
@@ -5646,7 +5646,7 @@ class PEDACmd(object):
                 if not peda.is_executable(start, maps): continue  # skip non-executable page
                 result += peda.search_asm(start, end, asmcode)
         else:
-            msg("Searching for ASM code: %s in range: 0x%x - 0x%x" % (repr(asmcode), start, end))
+            msg("Searching for ASM code: %s in range: %#x - %#x" % (repr(asmcode), start, end))
             result = peda.search_asm(start, end, asmcode)
 
         text = "Not found"
@@ -5692,7 +5692,7 @@ class PEDACmd(object):
         else:
             text = ""
             for (a, v) in result:
-                text += "0x%x : %s\n" % (a, v)
+                text += "%#x : %s\n" % (a, v)
             pager(text)
 
         return
@@ -5821,7 +5821,7 @@ class PEDACmd(object):
         # search for references to pattern buffer in memory
         ref_result = []
         for (a, l, o) in search_result:
-            res = peda.searchmem_by_range("all", "0x%x" % a)
+            res = peda.searchmem_by_range("all", "%#x" % a)
             ref_result += [(x[0], a) for x in res]
         if len(ref_result) > 0:
             msg("References to pattern buffer found at:", "blue")
@@ -5854,7 +5854,7 @@ class PEDACmd(object):
         pattern = cyclic_pattern(size)
         num_bytes_written = peda.writemem(address, pattern)
         if num_bytes_written:
-            msg("Written %d chars of cyclic pattern to 0x%x" % (size, address))
+            msg("Written %d chars of cyclic pattern to %#x" % (size, address))
         else:
             msg("Failed to write to memory")
 
@@ -5978,14 +5978,14 @@ class PEDACmd(object):
                 if result:  # return the first found result
                     break
         else:
-            msg("Searching for sub strings of: %s in range: 0x%x - 0x%x" % (repr(search), start, end))
+            msg("Searching for sub strings of: %s in range: %#x - %#x" % (repr(search), start, end))
             result = peda.search_substr(start, end, search)
 
         if result:
             msg("# (address, target_offset), # value (address=0xffffffff means not found)")
             offset = 0
             for (k, v) in result:
-                msg("(0x%x, %d), # %s" % ((0xffffffff if v == -1 else v), offset, string_repr(k)))
+                msg("(%#x, %d), # %s" % ((0xffffffff if v == -1 else v), offset, string_repr(k)))
                 offset += len(k)
         else:
             msg("Not found")
@@ -6025,7 +6025,7 @@ class PEDACmd(object):
             write_mode = exec_mode = 0
 
         if write_mode:
-            msg("Instruction will be written to 0x%x" % address)
+            msg("Instruction will be written to %#x" % address)
         else:
             msg("Instructions will be written to stdout")
 
@@ -6039,7 +6039,7 @@ class PEDACmd(object):
         inst_code = b""
         # fetch instruction loop
         while True:
-            inst = input("iasm|0x%x> " % address)
+            inst = input("iasm|%#x> " % address)
             if inst == "end":
                 break
             if inst == "":
@@ -6291,7 +6291,7 @@ class PEDACmd(object):
         if inst:
             if "ret" in inst:
                 sp = peda.getreg("sp")
-                value = int(peda.execute("x/wx 0x%x" % sp, to_string=True).split(":")[1].strip(), 16)
+                value = int(peda.execute("x/wx %#x" % sp, to_string=True).split(":")[1].strip(), 16)
         if value is None:
             self._missing_argument()
 
