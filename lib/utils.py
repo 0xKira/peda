@@ -612,7 +612,7 @@ def format_disasm_code(code, nearby=None):
                     if c == "call":
                         for f in VULN_FUNCTIONS:
                             if f in line.split(":\t", 1)[-1]:
-                                style = "bold, underline"
+                                style = "bold"
                                 color = "red"
                                 break
                     break
