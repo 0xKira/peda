@@ -798,13 +798,33 @@ class PEDA(object):
             if self.getpid() and not self.is_address(address - backward + i):
                 continue
 
-            code = self.execute("disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1)),
-                                to_string=True)
+            cmd = "disassemble %s, %s" % (to_hex(address - backward + i), to_hex(address + 1))
+            code = self.execute(cmd, to_string=True)
             if code and ("%x" % address) in code:
                 lines = code.strip().splitlines()[1:-1]
                 if len(lines) > count and "(bad)" not in " ".join(lines):
+                    
+                    '''
+                    with some utils like ASAN compiled in binary, gdb may have bug when disassemble these functions which will generate two line for one instruction
+                    the implementation will try to find ':' in each line otherwise a ValueError will occur which will not catched and finally crash the peda plugin :(
+                    To fix this issue, try to merge the line without ':' with the previous line
+                    eg :
+                    0x0000555561b55d40 <some_func+720>:	warning: (Internal error: pc 0x55555e44b130 in read in CU, but not in symtab.)
+                    call   0x55555e44b130 <__asan_report_load8>
+                    '''
+                    line_idx = 1
+                    while line_idx < len(lines) :
+                        if ":" in lines[line_idx] :
+                            line_idx += 1
+                            continue
+                        lines[line_idx - 1] += lines[line_idx]
+                        lines.pop(line_idx)
+
                     for line in lines[-count - 1:-1]:
-                        (addr, code) = line.split(":", 1)
+                        try :
+                            (addr, code) = line.split(":", 1)
+                        except ValueError :
+                            raise ValueError("current line: {}\n\tcmd: {}".format(line, cmd))
                         addr = re.search("(0x[^ ]*)", addr).group(1)
                         result += [(to_int(addr), code)]
                     return result
