@@ -3488,7 +3488,7 @@ class PEDACmd(object):
     show.options = ["option", "arg", "env"]
 
     # set [option | arg | env]
-    def set(self, *arg):
+    def setp(self, *arg):
         """
         Set various PEDA options and other settings
         Usage:
@@ -3550,7 +3550,7 @@ class PEDACmd(object):
             msg("Unknown set option: %s" % known_args.opt)
         return
 
-    set.options = ["option", "arg", "env"]
+    setp.options = ["option", "arg", "env"]
 
     def hexprint(self, *arg):
         """
