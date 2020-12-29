@@ -802,9 +802,13 @@ class PEDA(object):
                                 to_string=True)
             if code and ("%x" % address) in code:
                 lines = code.strip().splitlines()[1:-1]
-                if len(lines) > count and "(bad)" not in " ".join(lines):
+                if len(lines) > count and all(["(bad)" not in _l for _l in lines]):
                     for line in lines[-count - 1:-1]:
-                        (addr, code) = line.split(":", 1)
+                        try:
+                            (addr, code) = line.split(":", 1)
+                        except ValueError:
+                            warning_msg('error in {}, line: {}'.format(__func__, line))
+                            continue
                         addr = re.search("(0x[^ ]*)", addr).group(1)
                         result += [(to_int(addr), code)]
                     return result
