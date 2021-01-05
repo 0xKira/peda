@@ -3680,6 +3680,7 @@ class PEDACmd(object):
         dist = end - start
         text = "From %#x%s to %#x: " % (start, " (SP)" if start == sp else "", end)
         text += "%#x bytes, %d qwords%s" % (dist, dist // 8, " (+%d bytes)" % (dist % 8) if (dist % 8 != 0) else "")
+        text += ", {:.1f} KB, {:.1f} MB".format(dist / 1024, dist / 1024 / 1024)
         msg(text)
 
         return
