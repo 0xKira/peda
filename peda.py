@@ -3267,15 +3267,17 @@ class PEDACmd(object):
         """
         Enable peda display
         """
-        peda.restore_user_command("all")
-        peda.enabled = True
+        if not peda.enabled:
+            peda.restore_user_command("all")
+            peda.enabled = True
 
     def disable(self):
         """
         Disable peda display
         """
-        peda.save_user_command("hook-stop")
-        peda.enabled = False
+        if peda.enabled:
+            peda.save_user_command("hook-stop")
+            peda.enabled = False
 
     def reload(self, *arg):
         """
