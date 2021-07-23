@@ -4808,6 +4808,8 @@ class PEDACmd(object):
             return
 
         func_name = gdb.selected_frame().name()
+        if func_name is None:  # rare bug
+            func_name = ''
         cur_line = sal.line
         filename = sal.symtab.fullname()
         if not os.path.exists(filename):
