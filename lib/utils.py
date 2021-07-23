@@ -189,28 +189,30 @@ class message(object):
     def bufferize(self, f=None):
         """Activate message's bufferization, can also be used as a decorater."""
 
-        if f != None:
+        if f is not None:
 
             @functools.wraps(f)
             def wrapper(*args, **kwargs):
                 self.bufferize()
-                f(*args, **kwargs)
-                self.flush()
+                try:
+                    f(*args, **kwargs)
+                finally:
+                    self.flush()
 
             return wrapper
 
         # If we are still using stdio we need to change it.
-        if not self.buffering:
+        if self.buffering == 0:
             self.out = StringIO()
         self.buffering += 1
 
     def flush(self):
-        if not self.buffering:
+        if self.buffering == 0:
             raise ValueError("Tried to flush a message that is not bufferising.")
         self.buffering -= 1
 
         # We only need to flush if this is the lowest recursion level.
-        if not self.buffering:
+        if self.buffering == 0:
             self.out.flush()
             sys.stdout.write(self.out.getvalue())
             self.out = sys.stdout
