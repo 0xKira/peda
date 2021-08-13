@@ -70,11 +70,9 @@ class memoized(object):
 
     def __get__(self, obj, objtype):
         """Support instance methods."""
-        if obj is None:
-            return self
-        else:
+        if obj:
             self.instance = obj
-            return self
+        return self
 
     def _reset(self):
         """Reset the cache"""
