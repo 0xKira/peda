@@ -15,11 +15,10 @@ import os
 import sys
 import shlex
 import string
-import subprocess
 import time
-import signal
 import traceback
 import codecs
+import gdb
 
 # point to absolute path of peda.py
 PEDAFILE = os.path.abspath(os.path.expanduser(__file__))
@@ -29,17 +28,16 @@ sys.path.insert(0, os.path.dirname(PEDAFILE) + "/lib/")
 
 # Use six library to provide Python 2/3 compatibility
 import six
-from six.moves import range
-from six.moves import input
+from six.moves import range, input
 try:
     import six.moves.cPickle as pickle
 except ImportError:
     import pickle
 
-from shellcode import *
+from shellcode import SHELLCODES, Shellcode
 from utils import *
 import config
-from nasm import *
+from nasm import Nasm
 
 if sys.version_info.major == 3:
     from urllib.request import urlopen
@@ -4955,8 +4953,7 @@ class PEDACmd(object):
             msg("%s %s %s\t%s" % ("Start".ljust(l, " "), "End".ljust(l, " "), "Perm", "Name"), "blue", "bold")
             for (start, end, perm, name) in maps:
                 color = "red" if "rwx" in perm else None
-                msg("%s %s %s\t%s" % (to_address(start).ljust(l, " "), to_address(end).ljust(l, " "), perm, name),
-                    color)
+                msg("%s %s %s\t%s" % (to_address(start).ljust(l, " "), to_address(end).ljust(l, " "), perm, name), color)
         else:
             warning_msg("not found or cannot access procfs")
         return

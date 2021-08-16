@@ -17,9 +17,8 @@ import sys
 import struct
 import string
 import re
-import itertools
 import functools
-from subprocess import *
+from subprocess import Popen, PIPE
 import config
 import codecs
 import termios
@@ -522,10 +521,10 @@ def check_badchars(data, chars=None):
 
 
 @memoized
-def format_address(addr, type):
+def format_address(addr, _type):
     """Colorize an address"""
     colorcodes = {"data": "blue", "code": "red", "rodata": "green", "heap": "purple", "value": None}
-    return colorize(addr, colorcodes[type])
+    return colorize(addr, colorcodes[_type])
 
 
 @memoized
@@ -618,7 +617,6 @@ def format_disasm_code(code, nearby=None):
                     break
 
             prefix = line.split(":\t")[0]
-            #addr = re.search("(0x[^\s]*)", prefix)
             addr = re.search("\s*(0x[0-9a-fA-F]+)", prefix)
             if addr:
                 addr = to_int(addr.group(1))
