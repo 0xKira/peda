@@ -424,6 +424,10 @@ class PEDA(object):
             return ('elf64-x86-64', 64)
         elif 'i386' in gdb_arch:
             return ('elf32-i386', 32)
+        elif 'arm' in gdb_arch:
+            return ('elf32-littlearm', 32)
+        elif 'aarch64' in gdb_arch:
+            return ('elf64-littleaarch64', 64)
         arch = "unknown"
         bits = 32
         out = self.execute('maintenance info sections ?', to_string=True).splitlines()
@@ -1815,7 +1819,10 @@ class PEDA(object):
             main_exe = ''
             last_file = list()
             seen_files = set()
-            for line in self.execute('info files', to_string=True).splitlines():
+            file_maps = self.execute('info files', to_string=True).splitlines()
+            if len(file_maps) <= 3:
+                return []
+            for line in file_maps:
                 line = line.strip()
                 # The name of the main executable
                 if line.startswith('`'):
@@ -1921,16 +1928,17 @@ class PEDA(object):
         def _get_allmaps_linux(pid, remote=False):
             maps = []
             mpath = "/proc/%s/maps" % pid
-            #00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
+            # 00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
             pattern = re.compile("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)")
 
             if remote:  # remote target
                 # check if is QEMU
                 if 'ENABLE=' in self.execute('maintenance packet Qqemu.sstepbits', to_string=True):
+                    # pwndbg uses 'info sharedlibrary' also, but seems it's coverd by 'info files'
                     maps = _get_info_files_maps()
-                    # add stack to maps
+                    # add stack to maps, length is not accurate
                     sp = self.getreg("sp") & ~0xfff
-                    maps.append((sp, sp + 0x1000, 'rwxp', '[stack]'))
+                    maps.append((sp, sp + 0x8000, 'rwxp', '[stack]'))
                     return maps
                 else:
                     tmp = tmpfile()
@@ -1964,8 +1972,8 @@ class PEDA(object):
         rmt = self.is_target_remote()
         maps = []
         try:
-            if os == "FreeBSD": maps = _get_allmaps_freebsd(pid, rmt)
-            elif os == "Linux": maps = _get_allmaps_linux(pid, rmt)
+            if os == "Linux": maps = _get_allmaps_linux(pid, rmt)
+            elif os == "FreeBSD": maps = _get_allmaps_freebsd(pid, rmt)
             elif os == "Darwin": maps = _get_allmaps_osx(pid, rmt)
         except Exception as e:
             if config.Option.get("debug") == "on":
@@ -1975,7 +1983,7 @@ class PEDA(object):
         # select maps matched specific name
         if name == "binary":
             name = self.getfile()
-        if name == "heap":
+        elif name == "heap":
             name = "[heap]"
         if name is None or name == "all":
             name = ""
