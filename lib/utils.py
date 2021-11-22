@@ -17,9 +17,8 @@ import sys
 import struct
 import string
 import re
-import itertools
 import functools
-from subprocess import *
+from subprocess import Popen, PIPE
 import config
 import codecs
 import termios
@@ -70,11 +69,9 @@ class memoized(object):
 
     def __get__(self, obj, objtype):
         """Support instance methods."""
-        if obj is None:
-            return self
-        else:
+        if obj:
             self.instance = obj
-            return self
+        return self
 
     def _reset(self):
         """Reset the cache"""
@@ -189,28 +186,30 @@ class message(object):
     def bufferize(self, f=None):
         """Activate message's bufferization, can also be used as a decorater."""
 
-        if f != None:
+        if f is not None:
 
             @functools.wraps(f)
             def wrapper(*args, **kwargs):
                 self.bufferize()
-                f(*args, **kwargs)
-                self.flush()
+                try:
+                    f(*args, **kwargs)
+                finally:
+                    self.flush()
 
             return wrapper
 
         # If we are still using stdio we need to change it.
-        if not self.buffering:
+        if self.buffering == 0:
             self.out = StringIO()
         self.buffering += 1
 
     def flush(self):
-        if not self.buffering:
+        if self.buffering == 0:
             raise ValueError("Tried to flush a message that is not bufferising.")
         self.buffering -= 1
 
         # We only need to flush if this is the lowest recursion level.
-        if not self.buffering:
+        if self.buffering == 0:
             self.out.flush()
             sys.stdout.write(self.out.getvalue())
             self.out = sys.stdout
@@ -522,10 +521,10 @@ def check_badchars(data, chars=None):
 
 
 @memoized
-def format_address(addr, type):
+def format_address(addr, _type):
     """Colorize an address"""
     colorcodes = {"data": "blue", "code": "red", "rodata": "green", "heap": "purple", "value": None}
-    return colorize(addr, colorcodes[type])
+    return colorize(addr, colorcodes[_type])
 
 
 @memoized
@@ -618,7 +617,6 @@ def format_disasm_code(code, nearby=None):
                     break
 
             prefix = line.split(":\t")[0]
-            #addr = re.search("(0x[^\s]*)", prefix)
             addr = re.search("\s*(0x[0-9a-fA-F]+)", prefix)
             if addr:
                 addr = to_int(addr.group(1))

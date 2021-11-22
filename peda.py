@@ -15,11 +15,10 @@ import os
 import sys
 import shlex
 import string
-import subprocess
 import time
-import signal
 import traceback
 import codecs
+import gdb
 
 # point to absolute path of peda.py
 PEDAFILE = os.path.abspath(os.path.expanduser(__file__))
@@ -29,17 +28,16 @@ sys.path.insert(0, os.path.dirname(PEDAFILE) + "/lib/")
 
 # Use six library to provide Python 2/3 compatibility
 import six
-from six.moves import range
-from six.moves import input
+from six.moves import range, input
 try:
     import six.moves.cPickle as pickle
 except ImportError:
     import pickle
 
-from shellcode import *
+from shellcode import SHELLCODES, Shellcode
 from utils import *
 import config
-from nasm import *
+from nasm import Nasm
 
 if sys.version_info.major == 3:
     from urllib.request import urlopen
@@ -182,7 +180,7 @@ class PEDA(object):
             a = a.strip(",")
             if a.startswith("$"):  # try to get register/variable value
                 v = self.parse_and_eval(a)
-                if v != None and v != "void":
+                if v is not None and v != "void":
                     if v.startswith("0x"):  # int
                         args[idx] = v.split()[0]  # workaround for 0xdeadbeef <symbol+x>
                     else:  # string, complex data
@@ -197,7 +195,7 @@ class PEDA(object):
                     # XXX hack to avoid builtin functions/types
                     if not isinstance(v, six.string_types + six.integer_types):
                         continue
-                    args[idx] = "%s" % (to_hex(v) if to_int(v) != None else v)
+                    args[idx] = "%s" % (to_hex(v) if to_int(v) is not None else v)
                 except:
                     pass
         if config.Option.get("verbose") == "on":
@@ -426,6 +424,10 @@ class PEDA(object):
             return ('elf64-x86-64', 64)
         elif 'i386' in gdb_arch:
             return ('elf32-i386', 32)
+        elif 'arm' in gdb_arch:
+            return ('elf32-littlearm', 32)
+        elif 'aarch64' in gdb_arch:
+            return ('elf64-littleaarch64', 64)
         arch = "unknown"
         bits = 32
         out = self.execute('maintenance info sections ?', to_string=True).splitlines()
@@ -768,7 +770,7 @@ class PEDA(object):
             if "/" in arg[0]:
                 modif = arg[0]
                 arg = arg[1:]
-        if len(arg) == 1 and to_int(arg[0]) != None:
+        if len(arg) == 1 and to_int(arg[0]) is not None:
             arg += [to_hex(to_int(arg[0]) + 32)]
 
         self.execute("set disassembly-flavor intel")
@@ -804,10 +806,11 @@ class PEDA(object):
                 lines = code.strip().splitlines()[1:-1]
                 if len(lines) > count and all(["(bad)" not in _l for _l in lines]):
                     for line in lines[-count - 1:-1]:
-                        try :
+                        try:
                             (addr, code) = line.split(":", 1)
                         except ValueError:
                             warning_msg('error in {}, line: {}'.format(__func__, line))
+                            continue
                         addr = re.search("(0x[^ ]*)", addr).group(1)
                         result += [(to_int(addr), code)]
                     return result
@@ -1816,7 +1819,10 @@ class PEDA(object):
             main_exe = ''
             last_file = list()
             seen_files = set()
-            for line in self.execute('info files', to_string=True).splitlines():
+            file_maps = self.execute('info files', to_string=True).splitlines()
+            if len(file_maps) <= 3:
+                return []
+            for line in file_maps:
                 line = line.strip()
                 # The name of the main executable
                 if line.startswith('`'):
@@ -1922,16 +1928,17 @@ class PEDA(object):
         def _get_allmaps_linux(pid, remote=False):
             maps = []
             mpath = "/proc/%s/maps" % pid
-            #00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
+            # 00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
             pattern = re.compile("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)")
 
             if remote:  # remote target
                 # check if is QEMU
                 if 'ENABLE=' in self.execute('maintenance packet Qqemu.sstepbits', to_string=True):
+                    # pwndbg uses 'info sharedlibrary' also, but seems it's coverd by 'info files'
                     maps = _get_info_files_maps()
-                    # add stack to maps
+                    # add stack to maps, length is not accurate
                     sp = self.getreg("sp") & ~0xfff
-                    maps.append((sp, sp + 0x1000, 'rwxp', '[stack]'))
+                    maps.append((sp, sp + 0x8000, 'rwxp', '[stack]'))
                     return maps
                 else:
                     tmp = tmpfile()
@@ -1965,8 +1972,8 @@ class PEDA(object):
         rmt = self.is_target_remote()
         maps = []
         try:
-            if os == "FreeBSD": maps = _get_allmaps_freebsd(pid, rmt)
-            elif os == "Linux": maps = _get_allmaps_linux(pid, rmt)
+            if os == "Linux": maps = _get_allmaps_linux(pid, rmt)
+            elif os == "FreeBSD": maps = _get_allmaps_freebsd(pid, rmt)
             elif os == "Darwin": maps = _get_allmaps_osx(pid, rmt)
         except Exception as e:
             if config.Option.get("debug") == "on":
@@ -1976,7 +1983,7 @@ class PEDA(object):
         # select maps matched specific name
         if name == "binary":
             name = self.getfile()
-        if name == "heap":
+        elif name == "heap":
             name = "[heap]"
         if name is None or name == "all":
             name = ""
@@ -2310,7 +2317,7 @@ class PEDA(object):
         if mem is None:
             return None
 
-        if to_int(key) != None:
+        if to_int(key) is not None:
             key = hex2str(to_int(key), self.intsize())
         mem = list(bytes_iterator(mem))
         for index, char in enumerate(mem):
@@ -3266,15 +3273,17 @@ class PEDACmd(object):
         """
         Enable peda display
         """
-        peda.restore_user_command("all")
-        peda.enabled = True
+        if not peda.enabled:
+            peda.restore_user_command("all")
+            peda.enabled = True
 
     def disable(self):
         """
         Disable peda display
         """
-        peda.save_user_command("hook-stop")
-        peda.enabled = False
+        if peda.enabled:
+            peda.save_user_command("hook-stop")
+            peda.enabled = False
 
     def reload(self, *arg):
         """
@@ -3679,6 +3688,7 @@ class PEDACmd(object):
         dist = end - start
         text = "From %#x%s to %#x: " % (start, " (SP)" if start == sp else "", end)
         text += "%#x bytes, %d qwords%s" % (dist, dist // 8, " (+%d bytes)" % (dist % 8) if (dist % 8 != 0) else "")
+        text += ", {:.1f} KB, {:.1f} MB".format(dist / 1024, dist / 1024 / 1024)
         msg(text)
 
         return
@@ -4804,6 +4814,8 @@ class PEDACmd(object):
             return
 
         func_name = gdb.selected_frame().name()
+        if func_name is None:  # rare bug
+            func_name = ''
         cur_line = sal.line
         filename = sal.symtab.fullname()
         if not os.path.exists(filename):
@@ -4949,8 +4961,7 @@ class PEDACmd(object):
             msg("%s %s %s\t%s" % ("Start".ljust(l, " "), "End".ljust(l, " "), "Perm", "Name"), "blue", "bold")
             for (start, end, perm, name) in maps:
                 color = "red" if "rwx" in perm else None
-                msg("%s %s %s\t%s" % (to_address(start).ljust(l, " "), to_address(end).ljust(l, " "), perm, name),
-                    color)
+                msg("%s %s %s\t%s" % (to_address(start).ljust(l, " "), to_address(end).ljust(l, " "), perm, name), color)
         else:
             warning_msg("not found or cannot access procfs")
         return
@@ -5450,7 +5461,11 @@ class PEDACmd(object):
                 text += "Virtual memory mapping:\n"
                 text += green("Start : %s\n" % to_address(start))
                 text += green("End   : %s\n" % to_address(end))
-                text += yellow("Offset: %#x\n" % (address - start))
+                binmap = peda.get_vmmap("binary")
+                if binmap and name == binmap[0][3]:
+                    text += yellow("Offset: %#x (%#x in file)\n" % ((address - start), address - binmap[0][0]))
+                else:
+                    text += yellow("Offset: %#x\n" % (address - start))
                 text += red("Perm  : %s\n" % perm)
                 text += blue("Name  : %s" % name)
         msg(text)
