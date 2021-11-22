@@ -5461,8 +5461,8 @@ class PEDACmd(object):
                 text += "Virtual memory mapping:\n"
                 text += green("Start : %s\n" % to_address(start))
                 text += green("End   : %s\n" % to_address(end))
-                binmap = peda.get_vmmap("binary")
-                if binmap and name == binmap[0][3]:
+                binmap = peda.get_vmmap(name)
+                if binmap:
                     text += yellow("Offset: %#x (%#x in file)\n" % ((address - start), address - binmap[0][0]))
                 else:
                     text += yellow("Offset: %#x\n" % (address - start))
@@ -5551,15 +5551,19 @@ class PEDACmd(object):
         """
 
         (name, ) = normalize_argv(arg, 1)
+        name = '.got' if name == 'got'
         result = peda.elfheader(name)
         if len(result) == 0:
             warning_msg("%s not found, did you specify the FILE to debug?" % (name if name else "headers"))
         elif len(result) == 1:
             (k, (start, end, type)) = list(result.items())[0]
             msg("%s: %#x - %#x (%s)" % (k, start, end, type))
+            if k.startswith(".got"):
+                size = peda.intsize()
+                self.telescope(start, int((end - start) / size))
         else:
             for (k, (start, end, type)) in sorted(result.items(), key=lambda x: x[1]):
-                msg("%s = %#x" % (k, start))
+                msg("%s = %#x (%s)" % (k, start, type))
         return
 
     # readelf_header(), elfheader_solib()
