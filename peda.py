@@ -6598,7 +6598,6 @@ peda.execute("set height 0")  # disable paging
 peda.execute("set history expansion on")
 peda.execute("set history save on")  # enable history saving
 peda.execute("set disassembly-flavor intel")
-peda.execute("set follow-fork-mode child")
 peda.execute("set backtrace past-main on")
 peda.execute("set step-mode on")
 peda.execute("set print pretty on")
