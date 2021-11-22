@@ -5551,8 +5551,7 @@ class PEDACmd(object):
         """
 
         (name, ) = normalize_argv(arg, 1)
-        if name == 'got':
-            name = '.got'
+        name = '.got' if name == 'got'
         result = peda.elfheader(name)
         if len(result) == 0:
             warning_msg("%s not found, did you specify the FILE to debug?" % (name if name else "headers"))
@@ -5560,10 +5559,7 @@ class PEDACmd(object):
             (k, (start, end, type)) = list(result.items())[0]
             msg("%s: %#x - %#x (%s)" % (k, start, end, type))
             if k.startswith(".got"):
-                (arch, bits) = peda.getarch()
-                size = 8
-                if bits == 32:
-                    size = 4
+                size = peda.intsize()
                 self.telescope(start, int((end - start) / size))
         else:
             for (k, (start, end, type)) in sorted(result.items(), key=lambda x: x[1]):
