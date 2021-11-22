@@ -5461,8 +5461,8 @@ class PEDACmd(object):
                 text += "Virtual memory mapping:\n"
                 text += green("Start : %s\n" % to_address(start))
                 text += green("End   : %s\n" % to_address(end))
-                binmap = peda.get_vmmap("binary")
-                if binmap and name == binmap[0][3]:
+                binmap = peda.get_vmmap(name)
+                if binmap:
                     text += yellow("Offset: %#x (%#x in file)\n" % ((address - start), address - binmap[0][0]))
                 else:
                     text += yellow("Offset: %#x\n" % (address - start))
