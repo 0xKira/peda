@@ -5551,7 +5551,8 @@ class PEDACmd(object):
         """
 
         (name, ) = normalize_argv(arg, 1)
-        name = '.got' if name == 'got'
+        if name == 'got':
+            name = '.got'
         result = peda.elfheader(name)
         if len(result) == 0:
             warning_msg("%s not found, did you specify the FILE to debug?" % (name if name else "headers"))
