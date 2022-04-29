@@ -4719,9 +4719,9 @@ class PEDACmd(object):
             start -= count // 2 - (end - cur_line)
         for number, line in enumerate(self.source_lines[start:end], start + 1):
             if int(number) == cur_line:
-                msg(green("==> {:<4} {}".format(number, line.rstrip("\n")), "light"))
+                msg(green("=> {:<4} {}".format(number, line.rstrip("\n")), "light"))
             else:
-                msg("    {:<4} {}".format(number, line.rstrip("\n")))
+                msg("   {:<4} {}".format(number, line.rstrip("\n")))
 
         msg(' {} at {}:{} '.format(yellow(func_name), green(sal.symtab.filename), cur_line).center(get_screen_width() + 20, ' '))  # 20 is hack for color
 
