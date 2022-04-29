@@ -1468,8 +1468,8 @@ class PEDA(object):
         """
 
         target = None
-        inst = inst.strip()
-        opcode = inst.split(":\t")[-1].split()[0]
+        inst = inst.strip().split(":\t")[-1]
+        opcode = inst.split()[0]
         (arch, bits) = self.getarch()
         # this regex includes x86_64 RIP relateive address reference
         if "ret" in opcode:
@@ -1479,10 +1479,10 @@ class PEDA(object):
                 val = self.parse_and_eval("$sp")
                 target = self.parse_and_eval("{long}" + val)
         else:
-            p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*(0x[^ ]*)")
+            p = re.compile("j\w+\s+(.* PTR ).*(0x[^ ]+)")
             m = p.search(inst)
-            if not m:
-                p = re.compile(".*?:\s.*\s(0x[^ ]*|\w+)")
+            if not m: # should be a const jump
+                p = re.compile("j\w+\s+(0x[^ ]*|\w+)")
                 m = p.search(inst)
                 if m:
                     target = m.group(1)
@@ -1491,7 +1491,7 @@ class PEDA(object):
                     target = None
             else:
                 if "]" in m.group(2):  # e.g DWORD PTR [ebx+0xc]
-                    p = re.compile(".*?:\s*[^ ]*\s*(.* PTR ).*\[(.*)\]")
+                    p = re.compile("j\w+\s+(.* PTR ).*\[(.*)\]")
                     m = p.search(inst)
                 target = self.parse_and_eval("%s[%s]" % (m.group(1), m.group(2).strip()))
 
@@ -4723,7 +4723,7 @@ class PEDACmd(object):
                 self.dumpargs()
         else:
             # stopped at jump
-            if "j" in opcode or "ret" in opcode:
+            if opcode[0] == 'j' or opcode == 'ret':
                 jumpto = peda.testjump(inst)
                 if jumpto:  # JUMP is taken
                     code = peda.disassemble_around(pc, count)
