@@ -439,6 +439,7 @@ class PEDA(object):
             bits = 64
         return (arch, bits)
 
+    @memoized
     def intsize(self):
         """
         Get dword size of debugged program
@@ -981,9 +982,8 @@ class PEDA(object):
 
         args = []
         sp = self.getreg("sp")
-        mem = self.dumpmem(sp, sp + 4 * argc)
         for i in range(argc):
-            args += [struct.unpack("<L", mem[i * 4:(i + 1) * 4])[0]]
+            args.append(self.read_int(sp + i * 4, 4))
 
         return args
 
@@ -2123,7 +2123,7 @@ class PEDA(object):
 
         return mem
 
-    def readmem(self, address, size):
+    def read_mem(self, address, size):
         """
         Read content of memory at an address
 
@@ -2134,19 +2134,10 @@ class PEDA(object):
         Returns:
             - memory content (raw bytes)
         """
-        # try fast dumpmem if it works
-        mem = self.dumpmem(address, address + size)
-        if mem is not None:
-            return mem
-
-        # failed to dump, use slow x/gx way
-        mem = ""
-        out = self.execute("x/%dbx %#x" % (size, address), to_string=True)
-        if out:
-            for line in out.splitlines():
-                bytes = line.split(":\t")[-1].split()
-                mem += "".join([chr(int(c, 0)) for c in bytes])
-
+        try:
+            mem = gdb.selected_inferior().read_memory(address, size).tobytes()
+        except gdb.MemoryError:
+            return None
         return mem
 
     def read_int(self, address, intsize=None):
@@ -2162,24 +2153,12 @@ class PEDA(object):
         """
         if not intsize:
             intsize = self.intsize()
-        value = self.readmem(address, intsize)
-        if value:
-            value = self.unpack(value, intsize)
+        mem = self.read_mem(address, intsize)
+        if mem:
+            value = self.unpack(mem, intsize)
             return value
         else:
             return None
-
-    def read_long(self, address):
-        """
-        Read a long long value from memory
-
-        Args:
-            - address: address to read (Int)
-
-        Returns:
-            - mem value (Long Long)
-        """
-        return self.read_int(address, 8)
 
     def writemem(self, address, buf):
         """
@@ -2230,7 +2209,7 @@ class PEDA(object):
         if not intsize:
             intsize = self.intsize()
         buf = hex2str(value, intsize).ljust(intsize, "\x00")[:intsize]
-        saved = self.readmem(address, intsize)
+        saved = self.read_mem(address, intsize)
         if not saved:
             return False
 
@@ -2514,12 +2493,11 @@ class PEDA(object):
             - tuple of (value(Int), type(String), next_value(Int))
         """
 
-        def examine_data(value, bits=32):
-            out = self.execute("x/%sx %#x" % ("g" if bits == 64 else "w", value), to_string=True)
-            if out:
-                v = out.split(":\t")[-1].strip()
-                if is_printable(int2hexstr(to_int(v), bits // 8)):
-                    out = self.execute("x/s %#x" % value, to_string=True)
+        def examine_data(value):
+            intsize = self.intsize()
+            out = self.read_int(value, intsize)
+            if out is not None and is_printable(int2hexstr(out, intsize)):
+                out = self.execute("x/s %#x" % value, to_string=True).split(":", 1)[1].strip()
             return out
 
         result = (None, None, None)
@@ -2529,7 +2507,6 @@ class PEDA(object):
         maps = self.get_vmmap()
         binmap = self.get_vmmap("binary")
 
-        (arch, bits) = self.getarch()
         if not self.is_address(value):  # a value
             result = (to_hex(value), "value", "")
             return result
@@ -2538,17 +2515,17 @@ class PEDA(object):
 
         # check for writable first so rwxp mem will be treated as data
         if self.is_writable(value):  # writable data address
-            out = examine_data(value, bits)
-            if out:
+            out = examine_data(value)
+            if out is not None:
                 heapmap = self.get_vmmap("heap")
                 if heapmap:
                     (heap_start, heap_end, perm, mapname) = heapmap[0]
                     if value >= heap_start and value < heap_end:
-                        result = (to_hex(value), "heap", out.split(":", 1)[1].strip())
+                        result = (to_hex(value), "heap", out)
                     else:
-                        result = (to_hex(value), "data", out.split(":", 1)[1].strip())
+                        result = (to_hex(value), "data", out)
                 else:
-                    result = (to_hex(value), "data", out.split(":", 1)[1].strip())
+                    result = (to_hex(value), "data", out)
 
         elif self.is_executable(value):  # code/rodata address
             if self.is_address(value, binmap):
@@ -2566,28 +2543,25 @@ class PEDA(object):
                             m = p.search(out)
                             result = (to_hex(value), "code", m.group(1))
                         else:  # rodata address
-                            out = examine_data(value, bits)
-                            result = (to_hex(value), "rodata", out.split(":", 1)[1].strip())
+                            result = (to_hex(value), "rodata", examine_data(value))
                         break
 
                 if result[0] is None:  # not fall to any header section
-                    out = examine_data(value, bits)
-                    result = (to_hex(value), "rodata", out.split(":", 1)[1].strip())
+                    result = (to_hex(value), "rodata", examine_data(value))
 
             else:  # not belong to any lib: [heap], [vdso], [vsyscall], etc
                 out = self.get_disasm(value)
                 if "(bad)" in out:
-                    out = examine_data(value, bits)
-                    result = (to_hex(value), "rodata", out.split(":", 1)[1].strip())
+                    result = (to_hex(value), "rodata", examine_data(value))
                 else:
                     p = re.compile(".*?0x[^ ]*?\s(.*)")
                     m = p.search(out)
                     result = (to_hex(value), "code", m.group(1))
 
         else:  # readonly data address
-            out = examine_data(value, bits)
-            if out:
-                result = (to_hex(value), "rodata", out.split(":", 1)[1].strip())
+            out = examine_data(value)
+            if out is not None:
+                result = (to_hex(value), "rodata", out)
             else:
                 result = (to_hex(value), "rodata", "MemError")
 
