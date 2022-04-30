@@ -428,7 +428,7 @@ class PEDA(object):
         """
         if intsize == 8:
             return u64(s)
-        else:
+        elif intsize == 4:
             return u32(s)
 
     def pack(self, n, intsize):
@@ -440,7 +440,7 @@ class PEDA(object):
         """
         if intsize == 8:
             return p64(s)
-        else:
+        elif intsize == 4:
             return p32(s)
 
     def getregs(self, reglist=None):
@@ -5893,7 +5893,7 @@ class PEDACmd(object):
         if inst:
             if "ret" in inst:
                 sp = peda.getreg("sp")
-                value = int(peda.execute("x/wx %#x" % sp, to_string=True).split(":")[1].strip(), 16)
+                value = peda.read_int(sp, 4)
         if value is None:
             self._missing_argument()
 
