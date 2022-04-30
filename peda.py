@@ -35,6 +35,7 @@ except ImportError:
     import pickle
 
 from shellcode import SHELLCODES, Shellcode
+import utils
 from utils import *
 import config
 from nasm import Nasm
@@ -47,6 +48,11 @@ else:
     from urllib import urlopen
     from urllib import urlencode
     pyversion = 2
+
+GDB_ULONG_TYPE = gdb.lookup_type('unsigned long')
+GDB_UINT_TYPE = gdb.lookup_type('unsigned int')
+GDB_USHORT_TYPE = gdb.lookup_type('unsigned short')
+GDB_UCHAR_TYPE = gdb.lookup_type('unsigned char')
 
 REGISTERS = {
     8: ["al", "ah", "bl", "bh", "cl", "ch", "dl", "dh"],
@@ -107,15 +113,15 @@ class PEDA(object):
 
     def parse_and_eval(self, exp):
         """
-        Work around implementation for gdb.parse_and_eval with enhancements
+        Wrapper for gdb.parse_and_eval
 
         Args:
             - exp: expression to evaluate (String)
 
         Returns:
-            - value of expression
+            - value of expression (Int)
         """
-        (arch, bits) = peda.getarch()
+        (arch, _) = peda.getarch()
         if "aarch64" in arch:
             regs = REGISTERS["elf64-littleaarch64"]
         elif "arm" in arch:
@@ -126,71 +132,40 @@ class PEDA(object):
             if "$" + r not in exp and "e" + r not in exp and "r" + r not in exp:
                 exp = exp.replace(r, "$%s" % r)
 
-        p = re.compile("(.*)\[(.*)\]")  # DWORD PTR [esi+eax*1]
-        matches = p.search(exp)
-        if not matches:
-            p = re.compile("(.*).s:(0x.*)")  # DWORD PTR ds:0xdeadbeef
-            matches = p.search(exp)
-
-        if matches:
-            mod = "w"
-            if "BYTE" in matches.group(1):
-                mod = "b"
-            elif "QWORD" in matches.group(1):
-                mod = "g"
-            elif "DWORD" in matches.group(1):
-                mod = "w"
-            elif "WORD" in matches.group(1):
-                mod = "h"
-
-            out = self.execute("x/%sx %s" % (mod, matches.group(2)), to_string=True)
-            if not out:
-                return None
-            else:
-                return out.split(":\t")[-1].strip()
-
-        else:
-            out = self.execute("print %s" % exp, to_string=True)
-        if not out:
+        try:
+            return int(gdb.parse_and_eval(exp).cast(GDB_ULONG_TYPE))
+        except gdb.error:
             return None
-        else:
-            out = gdb.history(0).__str__()
-            out = out.encode('ascii', 'ignore')
-            out = decode_string_escape(out)
-            return out.strip()
 
-    def string_to_argv(self, str):
+    def string_to_argv(self, str_arg):
         """
         Convert a string to argv list, pre-processing register and variable values
 
         Args:
-            - str: input string (String)
+            - str_arg: input string (String)
 
         Returns:
             - argv list (List)
         """
         try:
-            str = str.encode('ascii', 'ignore')
+            str_arg = str_arg.encode('ascii', 'ignore')
         except:
             pass
-        args = list(map(lambda x: decode_string_escape(x), shlex.split(str.decode())))
+        args = list(map(lambda x: decode_string_escape(x), shlex.split(str_arg.decode())))
         # need more processing here
         for idx, a in enumerate(args):
             a = a.strip(",")
             if a.startswith("$"):  # try to get register/variable value
                 v = self.parse_and_eval(a)
-                if v is not None and v != "void":
-                    if v.startswith("0x"):  # int
-                        args[idx] = v.split()[0]  # workaround for 0xdeadbeef <symbol+x>
-                    else:  # string, complex data
-                        args[idx] = v
+                if v is not None:
+                    args[idx] = str(v)
             elif a.startswith("+"):  # relative value to prev arg
-                adder = to_int(self.parse_and_eval(a[1:]))
+                adder = self.parse_and_eval(a[1:])
                 if adder is not None:
                     args[idx] = "%s" % to_hex(to_int(args[idx - 1]) + adder)
-            elif is_math_exp(a):
+            elif utils.is_math_exp(a):
                 try:
-                    v = eval("%s" % a)
+                    v = eval("%s" % a)  # wtf?!
                     # XXX hack to avoid builtin functions/types
                     if not isinstance(v, six.string_types + six.integer_types):
                         continue
@@ -564,7 +539,7 @@ class PEDA(object):
 
         lines = out.splitlines()[1:]
         # breakpoint regex
-        p = re.compile("^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x[^ ]*)\s*(.*)")
+        p = re.compile("^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x\S+)\s*(.*)")
         m = p.match(lines[0])
         if not m:
             # catchpoint/watchpoint regex
@@ -808,7 +783,7 @@ class PEDA(object):
                         except ValueError:
                             warning_msg('error in {}, line: {}'.format(__func__, line))
                             continue
-                        addr = re.search("(0x[^ ]*)", addr).group(1)
+                        addr = re.search("(0x\S+)", addr).group(1)
                         result += [(to_int(addr), code)]
                     return result
         return None
@@ -829,7 +804,7 @@ class PEDA(object):
             return None
 
         (addr, code) = out.split(":", 1)
-        addr = re.search("(0x[^ ]*)", addr).group(1)
+        addr = re.search("(0x\S+)", addr).group(1)
         addr = to_int(addr)
         code = code.strip()
 
@@ -857,7 +832,7 @@ class PEDA(object):
             if ":" not in lines[i]:
                 i += 1
             (addr, code) = lines[i].split(":", 1)
-            addr = re.search("(0x[^ ]*)", addr).group(1)
+            addr = re.search("(0x\S+)", addr).group(1)
             result += [(to_int(addr), code)]
         return result
 
@@ -879,7 +854,7 @@ class PEDA(object):
             return None
 
         # check if address is reachable
-        if not self.execute("x/x %#x" % pc, to_string=True):
+        if self.read_int(pc) is None:
             return None
 
         prev_code = self.prev_inst(pc, count // 2 - 1)
@@ -938,7 +913,7 @@ class PEDA(object):
             out = self.execute("x/i %#x" % addr, to_string=True)
             if out:
                 line = out
-                p = re.compile("\s*(0x[^ ]*).*?:\s*([^ ]*)\s*(.*)")
+                p = re.compile("\s*(0x\S+).*?:\s*([^ ]*)\s*(.*)")
             else:
                 p = re.compile("(.*?)\s*<.*?>\s*([^ ]*)\s*(.*)")
 
@@ -1457,32 +1432,39 @@ class PEDA(object):
         target = None
         inst = inst.strip().split(":\t")[-1]
         opcode = inst.split()[0]
-        (arch, bits) = self.getarch()
+
         # this regex includes x86_64 RIP relateive address reference
         if "ret" in opcode:
+            (arch, _) = self.getarch()
             if "aarch64" in arch:
-                target = self.parse_and_eval("x30")
+                target = self.parse_and_eval("$x30")
             else:
-                val = self.parse_and_eval("$sp")
-                target = self.parse_and_eval("{long}" + val)
+                target = self.parse_and_eval("{long}$sp")
         else:
-            p = re.compile("j\w+\s+(.* PTR ).*(0x[^ ]+)")
+            # e.g QWORD PTR ds:0xdeadbeef and DWORD PTR [ebx+0xc]
+            # TODO: improve this regex
+            p = re.compile("\w+\s+(\w+) PTR (\[(.+)\]|\w+:(0x\S+))")
             m = p.search(inst)
-            if not m: # should be a const jump
-                p = re.compile("j\w+\s+(0x[^ ]*|\w+)")
+            if m:
+                prefix = m.group(1)
+                if '[' in m.group(2):
+                    dest = m.group(3)
+                else:
+                    dest = m.group(4)
+                if prefix == 'QWORD':
+                    typ = 'unsigned long'
+                elif prefix == 'DWORD':
+                    typ = 'unsigned int'
+                elif prefix == 'WORD':
+                    typ = 'unsigned short'
+                target = self.parse_and_eval("{%s}(%s)" % (typ, dest))
+            else:  # should be a const jump
+                p = re.compile("\w+\s+(0x\S+|\w+)")
                 m = p.search(inst)
                 if m:
-                    target = m.group(1)
-                    target = self.parse_and_eval(target)
-                else:
-                    target = None
-            else:
-                if "]" in m.group(2):  # e.g DWORD PTR [ebx+0xc]
-                    p = re.compile("j\w+\s+(.* PTR ).*\[(.*)\]")
-                    m = p.search(inst)
-                target = self.parse_and_eval("%s[%s]" % (m.group(1), m.group(2).strip()))
+                    target = self.parse_and_eval(m.group(1))
 
-        return to_int(target)
+        return target
 
     def testjump(self, inst=None):
         """
@@ -1493,53 +1475,40 @@ class PEDA(object):
         """
         flags = self.get_eflags()
         if not flags:
-            return None
+            return False, None
 
         if not inst:
             pc = self.getreg("pc")
             inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
-                return None
+                return False, None
 
         opcode = inst.split(":\t")[-1].split()[0]
         next_addr = self.eval_target(inst)
         if next_addr is None:
             next_addr = 0
 
-        if opcode == "ret":
-            return next_addr
-        if opcode == "jmp":
-            return next_addr
-        if opcode == "je" and flags["ZF"]:
-            return next_addr
-        if opcode == "jne" and not flags["ZF"]:
-            return next_addr
-        if opcode == "jg" and not flags["ZF"] and (flags["SF"] == flags["OF"]):
-            return next_addr
-        if opcode == "jge" and (flags["SF"] == flags["OF"]):
-            return next_addr
-        if opcode == "ja" and not flags["CF"] and not flags["ZF"]:
-            return next_addr
-        if opcode == "jae" and not flags["CF"]:
-            return next_addr
-        if opcode == "jl" and (flags["SF"] != flags["OF"]):
-            return next_addr
-        if opcode == "jle" and (flags["ZF"] or (flags["SF"] != flags["OF"])):
-            return next_addr
-        if opcode == "jb" and flags["CF"]:
-            return next_addr
-        if opcode == "jbe" and (flags["CF"] or flags["ZF"]):
-            return next_addr
-        if opcode == "jo" and flags["OF"]:
-            return next_addr
-        if opcode == "jno" and not flags["OF"]:
-            return next_addr
-        if opcode == "jz" and flags["ZF"]:
-            return next_addr
-        if opcode == "jnz" and flags["OF"]:
-            return next_addr
+        if (
+            opcode == "ret" or
+            opcode == "jmp" or
+            (opcode == "je" and flags["ZF"]) or
+            (opcode == "jne" and not flags["ZF"]) or
+            (opcode == "jg" and not flags["ZF"] and flags["SF"] == flags["OF"]) or
+            (opcode == "jge" and flags["SF"] == flags["OF"]) or
+            (opcode == "ja" and not flags["CF"] and not flags["ZF"]) or
+            (opcode == "jae" and not flags["CF"]) or
+            (opcode == "jl" and flags["SF"] != flags["OF"]) or
+            (opcode == "jle" and (flags["ZF"] or flags["SF"] != flags["OF"])) or
+            (opcode == "jb" and flags["CF"]) or
+            (opcode == "jbe" and (flags["CF"] or flags["ZF"])) or
+            (opcode == "jo" and flags["OF"]) or
+            (opcode == "jno" and not flags["OF"]) or
+            (opcode == "jz" and flags["ZF"]) or
+            (opcode == "jnz" and flags["OF"])
+        ):
+            return True, next_addr
 
-        return None
+        return False, None
 
     def aarch64_testjump(self, inst=None):
         """
@@ -1550,63 +1519,46 @@ class PEDA(object):
         """
         flags = self.get_aarch64_cpsr()
         if not flags:
-            return None
+            return False, None
 
         if not inst:
             pc = self.getreg("pc")
             inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
-                return None
+                return False, None
 
         opcode = inst.split(":\t")[-1].split()[0]
         next_addr = self.eval_target(inst)
         if next_addr is None:
             next_addr = 0
 
-        if "ret" in opcode:
-            return next_addr
-        if opcode == "cbnz":
-            rn = inst.split(":\t")[-1].split()[1].strip(",")
-            val = to_int(self.parse_and_eval(rn))
-            if val == 0:
-                return next_addr
-        if opcode == "cbz":
-            rn = inst.split(":\t")[-1].split()[1].strip(",")
-            val = to_int(self.parse_and_eval(rn))
-            if val == 0:
-                return next_addr
-        if opcode == "b":
-            return next_addr
-        if opcode == "b.eq" and flags["Z"]:
-            return next_addr
-        if opcode == "b.ne" and not flags["Z"]:
-            return next_addr
-        if opcode == "b.cs" and flags["C"]:
-            return next_addr
-        if opcode == "b.cc" and not flags["C"]:
-            return next_addr
-        if opcode == "b.mi" and flags["N"]:
-            return next_addr
-        if opcode == "b.pl" and not flags["N"]:
-            return next_addr
-        if opcode == "b.vs" and flags["O"]:
-            return next_addr
-        if opcode == "b.vc" and not flags["O"]:
-            return next_addr
-        if opcode == "b.hi" and not flags["Z"] and flags["C"]:
-            return next_addr
-        if opcode == "b.ls" and not flags["C"] and flags["Z"]:
-            return next_addr
-        if opcode == "b.ge" and (flags["N"] == flags["V"]):
-            return next_addr
-        if opcode == "b.lt" and (flags["N"] != flags["V"]):
-            return next_addr
-        if opcode == "b.gt" and not flags["Z"] and (flags["N"] == flags["V"]):
-            return next_addr
-        if opcode == "b.le" and flags["Z"] and (flags["N"] != flags["V"]):
-            return next_addr
+        if (
+            "ret" in opcode or
+            opcode == "b" or
+            (opcode == "b.eq" and flags["Z"]) or
+            (opcode == "b.ne" and not flags["Z"]) or
+            (opcode == "b.cs" and flags["C"]) or
+            (opcode == "b.cc" and not flags["C"]) or
+            (opcode == "b.mi" and flags["N"]) or
+            (opcode == "b.pl" and not flags["N"]) or
+            (opcode == "b.vs" and flags["O"]) or
+            (opcode == "b.vc" and not flags["O"]) or
+            (opcode == "b.hi" and not flags["Z"] and flags["C"]) or
+            (opcode == "b.ls" and not flags["C"] and flags["Z"]) or
+            (opcode == "b.ge" and flags["N"] == flags["V"]) or
+            (opcode == "b.lt" and flags["N"] != flags["V"]) or
+            (opcode == "b.gt" and not flags["Z"] and flags["N"] == flags["V"]) or
+            (opcode == "b.le" and flags["Z"] and flags["N"] != flags["V"])
+        ):
+            return True, next_addr
 
-        return None
+        if opcode == "cbnz" or opcode == "cbz":
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = self.parse_and_eval(rn)
+            if val == 0:
+                return True, next_addr
+
+        return False, None
 
     def arm_testjump(self, inst=None):
         """
@@ -1617,61 +1569,45 @@ class PEDA(object):
         """
         flags = self.get_cpsr()
         if not flags:
-            return None
+            return False, None
 
         if not inst:
             pc = self.getreg("pc")
             inst = self.execute("x/i %#x" % pc, to_string=True)
             if not inst:
-                return None
+                return False, None
 
         opcode = inst.split(":\t")[-1].split()[0]
         next_addr = self.eval_target(inst)
         if next_addr is None:
             next_addr = 0
 
-        if opcode == "cbnz":
-            rn = inst.split(":\t")[-1].split()[1].strip(",")
-            val = to_int(self.parse_and_eval(rn))
-            if val == 0:
-                return next_addr
-        if opcode == "cbz":
-            rn = inst.split(":\t")[-1].split()[1].strip(",")
-            val = to_int(self.parse_and_eval(rn))
-            if val == 0:
-                return next_addr
-        if opcode == "b":
-            return next_addr
-        if opcode.startswith("beq") and flags["Z"]:
-            return next_addr
-        if opcode.startswith("bne") and not flags["Z"]:
-            return next_addr
-        if opcode.startswith("bcs") and flags["C"]:
-            return next_addr
-        if opcode.startswith("bcc") and not flags["C"]:
-            return next_addr
-        if opcode.startswith("bmi") and flags["N"]:
-            return next_addr
-        if opcode.startswith("bpl") and not flags["N"]:
-            return next_addr
-        if opcode.startswith("bvs") and flags["O"]:
-            return next_addr
-        if opcode.startswith("bvc") and not flags["O"]:
-            return next_addr
-        if opcode.startswith("bhi") and not flags["Z"] and flags["C"]:
-            return next_addr
-        if opcode.startswith("bls") and not flags["C"] and flags["Z"]:
-            return next_addr
-        if opcode.startswith("bge") and (flags["N"] == flags["V"]):
-            return next_addr
-        if opcode.startswith("blt") and (flags["N"] != flags["V"]):
-            return next_addr
-        if opcode.startswith("bgt") and not flags["Z"] and (flags["N"] == flags["V"]):
-            return next_addr
-        if opcode.startswith("ble") and flags["Z"] and (flags["N"] != flags["V"]):
-            return next_addr
+        if (
+            opcode == "b" or
+            (opcode.startswith("beq") and flags["Z"]) or
+            (opcode.startswith("bne") and not flags["Z"]) or
+            (opcode.startswith("bcs") and flags["C"]) or
+            (opcode.startswith("bcc") and not flags["C"]) or
+            (opcode.startswith("bmi") and flags["N"]) or
+            (opcode.startswith("bpl") and not flags["N"]) or
+            (opcode.startswith("bvs") and flags["O"]) or
+            (opcode.startswith("bvc") and not flags["O"]) or
+            (opcode.startswith("bhi") and not flags["Z"] and flags["C"]) or
+            (opcode.startswith("bls") and not flags["C"] and flags["Z"]) or
+            (opcode.startswith("bge") and flags["N"] == flags["V"]) or
+            (opcode.startswith("blt") and flags["N"] != flags["V"]) or
+            (opcode.startswith("bgt") and not flags["Z"] and flags["N"] == flags["V"]) or
+            (opcode.startswith("ble") and flags["Z"] and flags["N"] != flags["V"])
+        ):
+            return True, next_addr
 
-        return None
+        if opcode == "cbnz" or opcode == "cbz":
+            rn = inst.split(":\t")[-1].split()[1].strip(",")
+            val = self.parse_and_eval(rn)
+            if val == 0:
+                return True, next_addr
+
+        return False, None
 
     def take_snapshot(self):
         """
@@ -2516,7 +2452,7 @@ class PEDA(object):
                     if value >= start and value < end:
                         if type == "code":
                             out = self.get_disasm(value)
-                            p = re.compile(".*?0x[^ ]*?\s(.*)")
+                            p = re.compile(".*?0x\S+?\s(.*)")
                             m = p.search(out)
                             result = (to_hex(value), "code", m.group(1))
                         else:  # rodata address
@@ -2531,7 +2467,7 @@ class PEDA(object):
                 if "(bad)" in out:
                     result = (to_hex(value), "rodata", examine_data(value))
                 else:
-                    p = re.compile(".*?0x[^ ]*?\s(.*)")
+                    p = re.compile(".*?0x\S+?\s(.*)")
                     m = p.search(out)
                     result = (to_hex(value), "code", m.group(1))
 
@@ -2659,7 +2595,7 @@ class PEDA(object):
         if not out:
             return {}
 
-        p = re.compile("\s*(0x[^-]*)->(0x[^ ]*) at (0x[^:]*):\s*([^ ]*)\s*(.*)")
+        p = re.compile("\s*(0x[^-]*)->(0x\S+) at (0x[^:]*):\s*([^ ]*)\s*(.*)")
         matches = p.findall(out)
 
         for (start, end, offset, hname, attr) in matches:
@@ -2735,7 +2671,7 @@ class PEDA(object):
             symname += "@plt"
             out = self.execute("info functions %s" % symname, to_string=True)
             if not out: continue
-            m = re.findall(".*(0x[^ ]*)\s*%s" % re.escape(symname), out)
+            m = re.findall(".*(0x\S+)\s*%s" % re.escape(symname), out)
             for addr in m:
                 addr = to_int(addr)
                 if self.is_address(addr, binmap):
@@ -2895,7 +2831,7 @@ class PEDA(object):
             if not out:
                 return None
 
-            p = re.compile("[^\n]*\s*(0x[^ ]*) - (0x[^ ]*) is (\.[^ ]*) in (.*)")
+            p = re.compile("[^\n]*\s*(0x\S+) - (0x\S+) is (\.[^ ]*) in (.*)")
             soheaders = p.findall(out)
 
             result = []
@@ -3389,7 +3325,7 @@ class PEDACmd(object):
             arg = (peda.string_to_argv(arg))
             if not arg:
                 msg("No argument")
-            for (i, a) in enumerate(arg):
+            for i, a in enumerate(arg):
                 text = "arg[%d]: %s" % ((i + 1), a if is_printable(a) else to_hexstr(a))
                 msg(text)
 
@@ -3572,26 +3508,6 @@ class PEDACmd(object):
             option = option.strip().lower()
             if option in ["on", "off"]:
                 peda.execute("set disable-randomization %s" % ("off" if option == "on" else "on"))
-
-    def xprint(self, *arg):
-        """
-        Extra support to GDB's print command
-        Usage:
-            MYNAME expression
-        """
-        text = ""
-        exp = " ".join(list(arg))
-        m = re.search(".*\[(.*)\]|.*?s:(0x[^ ]*)", exp)
-        if m:
-            addr = peda.parse_and_eval(m.group(1))
-            if to_int(addr):
-                text += "[%#x]: " % to_int(addr)
-
-        out = peda.parse_and_eval(exp)
-        if to_int(out):
-            chain = peda.examine_mem_reference(to_int(out))
-            text += format_reference_chain(chain)
-        msg(text)
 
     def distance(self, *arg):
         """
@@ -4278,177 +4194,6 @@ class PEDACmd(object):
         else:
             self.stepuntil("j", mapname)
 
-    # stepuntil()
-    def tracecall(self, *arg):
-        """
-        Trace function calls made by the program
-        Usage:
-            MYNAME ["func1,func2"] [mapname1,mapname2]
-            MYNAME ["-func1,func2"] [mapname1,mapname2] (inverse)
-                default is to trace internal calls made by the program
-        """
-        if not self._is_running():
-            return
-
-        (funcs, mapname) = normalize_argv(arg, 2)
-        if not mapname:
-            mapname = "binary"
-
-        fnames = [""]
-        if funcs:
-            if to_int(funcs):
-                funcs = "%#x" % funcs
-            fnames = funcs.replace(",", " ").split()
-        for (idx, fn) in enumerate(fnames):
-            if to_int(fn):
-                fnames[idx] = "%#x" % to_int(fn)
-
-        inverse = 0
-        for (idx, fn) in enumerate(fnames):
-            if fn.startswith("-"):  # inverse trace
-                fnames[idx] = fn[1:]
-                inverse = 1
-
-        binname = peda.getfile()
-        logname = peda.get_config_filename("tracelog")
-
-        if mapname is None:
-            mapname = binname
-
-        peda.save_user_command("hook-stop")  # disable hook-stop to speedup
-        msg("Tracing calls %s '%s', Ctrl-C to stop..." % ("match" if not inverse else "not match", ",".join(fnames)))
-        prev_depth = peda.backtrace_depth(peda.getreg("sp"))
-
-        logfd = open(logname, "w")
-        while True:
-            result = peda.stepuntil("call", mapname, prev_depth)
-            if result is None:
-                break
-            (call_depth, code) = result
-            prev_depth += call_depth
-            if not code.startswith("=>"):
-                break
-
-            if not inverse:
-                matched = False
-                for fn in fnames:
-                    fn = fn.strip()
-                    if re.search(fn, code.split(":\t")[-1]):
-                        matched = True
-                        break
-            else:
-                matched = True
-                for fn in fnames:
-                    fn = fn.strip()
-                    if re.search(fn, code.split(":\t")[-1]):
-                        matched = False
-                        break
-
-            if matched:
-                code = format_disasm_code(code)
-                msg("%s%s%s" % (" " * (prev_depth - 1), " dep:%02d " % (prev_depth - 1), colorize(code.strip())),
-                    teefd=logfd)
-                args = peda.get_function_args()
-                if args:
-                    for (i, a) in enumerate(args):
-                        chain = peda.examine_mem_reference(a)
-                        text = "%s        |-- arg[%d]: %s" % (" " * (prev_depth - 1), i, format_reference_chain(chain))
-                        msg(text, teefd=logfd)
-
-        msg(code, "red")
-        peda.restore_user_command("hook-stop")
-        if "STOP" not in peda.get_status():
-            peda.execute("stop")
-        logfd.close()
-        msg("Saved trace information in file %s, view with 'less -r file'" % logname)
-
-    # stepuntil()
-    def traceinst(self, *arg):
-        """
-        Trace specific instructions executed by the program
-        Usage:
-            MYNAME ["inst1,inst2"] [mapname1,mapname2]
-            MYNAME count (trace execution of next count instrcutions)
-                default is to trace instructions inside the program
-        """
-        if not self._is_running():
-            return
-
-        (insts, mapname) = normalize_argv(arg, 2)
-        if not mapname:
-            mapname = "binary"
-
-        instlist = [".*"]
-        count = -1
-        if insts:
-            if to_int(insts):
-                count = insts
-            else:
-                instlist = insts.replace(",", " ").split()
-
-        binname = peda.getfile()
-        logname = peda.get_config_filename("tracelog")
-
-        if mapname is None:
-            mapname = binname
-
-        peda.save_user_command("hook-stop")  # disable hook-stop to speedup
-        msg("Tracing instructions match '%s', Ctrl-C to stop..." % (",".join(instlist)))
-        prev_depth = peda.backtrace_depth(peda.getreg("sp"))
-        logfd = open(logname, "w")
-
-        p = re.compile(".*?:\s*[^ ]*\s*([^,]*),(.*)")
-        while count:
-            result = peda.stepuntil(",".join(instlist), mapname, prev_depth)
-            if result is None:
-                break
-            (call_depth, code) = result
-            prev_depth += call_depth
-            if not code.startswith("=>"):
-                break
-
-            # special case for JUMP inst
-            prev_code = ""
-            if re.search("j[^m]", code.split(":\t")[-1].split()[0]):
-                prev_insts = peda.prev_inst(peda.getreg("pc"))
-                if prev_insts:
-                    prev_code = "%#x:%s" % prev_insts[0]
-                    msg("%s%s%s" % (" " * (prev_depth - 1), " dep:%02d    " % (prev_depth - 1), prev_code), teefd=logfd)
-
-            text = "%s%s%s" % (" " * (prev_depth - 1), " dep:%02d " % (prev_depth - 1), code.strip())
-            msg(text, teefd=logfd)
-
-            if re.search("call", code.split(":\t")[-1].split()[0]):
-                args = peda.get_function_args()
-                if args:
-                    for (i, a) in enumerate(args):
-                        chain = peda.examine_mem_reference(a)
-                        text = "%s        |-- arg[%d]: %s" % (" " * (prev_depth - 1), i, format_reference_chain(chain))
-                        msg(text, teefd=logfd)
-
-            # get registers info if any
-            (arch, bits) = peda.getarch()
-            code = code.split("#")[0].strip("=>")
-            if prev_code:
-                m = p.search(prev_code)
-            else:
-                m = p.search(code)
-
-            if m:
-                for op in m.groups():
-                    if op.startswith("0x"): continue
-                    v = to_int(peda.parse_and_eval(op))
-                    chain = peda.examine_mem_reference(v)
-                    text = "%s        |-- %03s: %s" % (" " * (prev_depth - 1), op, format_reference_chain(chain))
-                    msg(text, teefd=logfd)
-
-            count -= 1
-
-        msg(code, "red")
-        peda.restore_user_command("hook-stop")
-        logfd.close()
-        msg("Saved trace information in file %s, view with 'less -r file'" % logname)
-
     def profile(self, *arg):
         """
         Simple profiling to count executed instructions in the program
@@ -4551,7 +4296,7 @@ class PEDACmd(object):
 
         text = ""
         opcode = inst.split(":\t")[-1].split()[0]
-        m = re.compile(r"\[[\S]*\]")
+        m = re.compile(r"\[\S*\]")
         m = m.findall(inst.split(":\t")[1])
 
         if "aarch64" in arch or "arm" in arch:
@@ -4567,15 +4312,15 @@ class PEDACmd(object):
                     exp += "+8"
                 val = peda.parse_and_eval(exp)
                 if val is not None:
-                    chain = peda.examine_mem_reference(to_int(val))
+                    chain = peda.examine_mem_reference(val)
                     msg("%s : %s" % (purple(m[0], "light"), format_reference_chain(chain)))
             elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")):
                 text = ""
                 if "aarch64" in arch:
-                    jumpto = peda.aarch64_testjump(inst)
+                    need_jump, jumpto = peda.aarch64_testjump(inst)
                 else:
-                    jumpto = peda.arm_testjump(inst)
-                if jumpto:  #jump is token
+                    need_jump, jumpto = peda.arm_testjump(inst)
+                if need_jump:  #jump is token
                     code = peda.disassemble_around(pc, count)
                     code = code.splitlines()
                     pc_idx = 999
@@ -4612,8 +4357,8 @@ class PEDACmd(object):
         else:
             # stopped at jump
             if opcode[0] == 'j' or opcode == 'ret':
-                jumpto = peda.testjump(inst)
-                if jumpto:  # JUMP is taken
+                need_jump, jumpto = peda.testjump(inst)
+                if need_jump:  # JUMP is taken
                     code = peda.disassemble_around(pc, count)
                     code = code.splitlines()
                     pc_idx = 999
@@ -4662,8 +4407,7 @@ class PEDACmd(object):
                     exp += "+" + str(inssize)
                 val = peda.parse_and_eval(exp)
                 if val is not None:
-                    val = val.split()[0]
-                    chain = peda.examine_mem_reference(to_int(val))
+                    chain = peda.examine_mem_reference(val)
                     msg("%s : %s" % (purple(m[0], "light"), format_reference_chain(chain)))
 
     @msg.bufferize
@@ -6377,9 +6121,6 @@ Alias("patta", "peda pattern_arg")
 Alias("patte", "peda pattern_env")
 Alias("patts", "peda pattern_search")
 # Alias("find", "peda searchmem") # override gdb find command
-Alias("ftrace", "peda tracecall")
-Alias("itrace", "peda traceinst")
-Alias("jtrace", "peda traceinst j")
 Alias("stack", "peda telescope $sp")
 Alias("viewmem", "peda telescope")
 Alias("reg", "peda xinfo register")
