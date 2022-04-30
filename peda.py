@@ -1415,7 +1415,7 @@ class PEDA(object):
 
         return True
 
-    def eval_target(self, inst):
+    def eval_target(self, opcode, inst):
         """
         Evaluate target address of an instruction, used for jumpto decision
 
@@ -1426,8 +1426,6 @@ class PEDA(object):
             - target address (Int)
         """
         target = None
-        inst = inst.strip().split(":\t")[-1]
-        opcode = inst.split()[0]
 
         # this regex includes x86_64 RIP relateive address reference
         if "ret" in opcode:
@@ -1445,6 +1443,10 @@ class PEDA(object):
                 prefix = m.group(1)
                 if '[' in m.group(2):
                     dest = m.group(3)
+                    if "rip" in dest:
+                        pc = self.getreg("pc")
+                        ins_size = self.next_inst(pc)[0][0] - pc
+                        dest += "+%d" % ins_size
                 else:
                     dest = m.group(4)
                 if prefix == 'QWORD':
@@ -1462,7 +1464,7 @@ class PEDA(object):
 
         return target
 
-    def testjump(self, inst=None):
+    def testjump(self, opcode, inst):
         """
         Test if jump instruction is taken or not
 
@@ -1473,14 +1475,7 @@ class PEDA(object):
         if not flags:
             return False, None
 
-        if not inst:
-            pc = self.getreg("pc")
-            inst = self.execute("x/i %#x" % pc, to_string=True)
-            if not inst:
-                return False, None
-
-        opcode = inst.split(":\t")[-1].split()[0]
-        next_addr = self.eval_target(inst)
+        next_addr = self.eval_target(opcode, inst)
         if next_addr is None:
             next_addr = 0
 
@@ -1506,7 +1501,7 @@ class PEDA(object):
 
         return False, None
 
-    def aarch64_testjump(self, inst=None):
+    def aarch64_testjump(self, opcode, inst):
         """
         Test if jump instruction is taken or not - aarch64
 
@@ -1517,14 +1512,7 @@ class PEDA(object):
         if not flags:
             return False, None
 
-        if not inst:
-            pc = self.getreg("pc")
-            inst = self.execute("x/i %#x" % pc, to_string=True)
-            if not inst:
-                return False, None
-
-        opcode = inst.split(":\t")[-1].split()[0]
-        next_addr = self.eval_target(inst)
+        next_addr = self.eval_target(opcode, inst)
         if next_addr is None:
             next_addr = 0
 
@@ -1556,7 +1544,7 @@ class PEDA(object):
 
         return False, None
 
-    def arm_testjump(self, inst=None):
+    def arm_testjump(self, opcode, inst):
         """
         Test if jump instruction is taken or not - arm
 
@@ -1567,14 +1555,7 @@ class PEDA(object):
         if not flags:
             return False, None
 
-        if not inst:
-            pc = self.getreg("pc")
-            inst = self.execute("x/i %#x" % pc, to_string=True)
-            if not inst:
-                return False, None
-
-        opcode = inst.split(":\t")[-1].split()[0]
-        next_addr = self.eval_target(inst)
+        next_addr = self.eval_target(opcode, inst)
         if next_addr is None:
             next_addr = 0
 
@@ -4291,9 +4272,9 @@ class PEDACmd(object):
         (arch, bits) = peda.getarch()
 
         text = ""
-        opcode = inst.split(":\t")[-1].split()[0]
-        m = re.compile(r"\[\S*\]")
-        m = m.findall(inst.split(":\t")[1])
+        inst = inst.strip().split(":\t")[-1]
+        opcode = inst.split()[0]
+        m = re.findall(r"\[\S*\]", inst)
 
         if "aarch64" in arch or "arm" in arch:
             text += peda.disassemble_around(pc, count)
@@ -4310,12 +4291,12 @@ class PEDACmd(object):
                 if val is not None:
                     chain = peda.examine_mem_reference(val)
                     msg("%s : %s" % (purple(m[0], "light"), format_reference_chain(chain)))
-            elif opcode.startswith("b") or "ret" in opcode or (opcode.startswith("c") and opcode.endswith("z")):
+            elif opcode[0] == 'b' or "ret" in opcode or (opcode[0] == 'c' and opcode[-1] == 'z'):
                 text = ""
                 if "aarch64" in arch:
-                    need_jump, jumpto = peda.aarch64_testjump(inst)
+                    need_jump, jumpto = peda.aarch64_testjump(opcode, inst)
                 else:
-                    need_jump, jumpto = peda.arm_testjump(inst)
+                    need_jump, jumpto = peda.arm_testjump(opcode, inst)
                 if need_jump:  #jump is token
                     code = peda.disassemble_around(pc, count)
                     code = code.splitlines()
@@ -4351,9 +4332,14 @@ class PEDACmd(object):
             if "bl" in opcode:
                 self.dumpargs()
         else:
+            # remove instruction prefix
+            # <memset@plt+4>:	bnd jmp QWORD PTR [rip+0x2f15]
+            if opcode == 'bnd':
+                opcode = inst.split()[1]
             # stopped at jump
+            # TODO: remove opcode prefix
             if opcode[0] == 'j' or opcode == 'ret':
-                need_jump, jumpto = peda.testjump(inst)
+                need_jump, jumpto = peda.testjump(opcode, inst)
                 if need_jump:  # JUMP is taken
                     code = peda.disassemble_around(pc, count)
                     code = code.splitlines()
@@ -4397,10 +4383,8 @@ class PEDACmd(object):
             if m:
                 exp = m[0][1:-1]
                 if "rip" in exp:
-                    nextins = peda.next_inst(pc)
-                    nextaddr = nextins[0][0]
-                    inssize = nextaddr - pc
-                    exp += "+" + str(inssize)
+                    ins_size = peda.next_inst(pc)[0][0] - pc
+                    exp += "+%d" % ins_size
                 val = peda.parse_and_eval(exp)
                 if val is not None:
                     chain = peda.examine_mem_reference(val)
