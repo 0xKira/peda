@@ -422,6 +422,8 @@ def to_int(val):
     """
     Convert a string to int number
     """
+    if isinstance(val, int):
+        return val
     try:
         return int(str(val), 0)
     except:
