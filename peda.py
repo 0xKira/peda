@@ -49,10 +49,6 @@ else:
     from urllib import urlencode
     pyversion = 2
 
-GDB_ULONG_TYPE = gdb.lookup_type('unsigned long')
-GDB_UINT_TYPE = gdb.lookup_type('unsigned int')
-GDB_USHORT_TYPE = gdb.lookup_type('unsigned short')
-GDB_UCHAR_TYPE = gdb.lookup_type('unsigned char')
 
 REGISTERS = {
     8: ["al", "ah", "bl", "bh", "cl", "ch", "dl", "dh"],
@@ -133,7 +129,7 @@ class PEDA(object):
                 exp = exp.replace(r, "$%s" % r)
 
         try:
-            return int(gdb.parse_and_eval(exp).cast(GDB_ULONG_TYPE))
+            return int(gdb.parse_and_eval(exp).cast(gdb.lookup_type('unsigned long')))
         except gdb.error:
             return None
 
@@ -1439,7 +1435,7 @@ class PEDA(object):
             if "aarch64" in arch:
                 target = self.parse_and_eval("$x30")
             else:
-                target = self.parse_and_eval("{long}$sp")
+                target = self.parse_and_eval("{unsigned long}$sp")
         else:
             # e.g QWORD PTR ds:0xdeadbeef and DWORD PTR [ebx+0xc]
             # TODO: improve this regex
