@@ -1437,7 +1437,7 @@ class PEDA(object):
         else:
             # e.g QWORD PTR ds:0xdeadbeef and DWORD PTR [ebx+0xc]
             # TODO: improve this regex
-            p = re.compile("\w+\s+(\w+) PTR (\[(.+)\]|\w+:(0x\S+))")
+            p = re.compile("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))")
             m = p.search(inst)
             if m:
                 prefix = m.group(1)
@@ -4334,10 +4334,10 @@ class PEDACmd(object):
         else:
             # remove instruction prefix
             # <memset@plt+4>:	bnd jmp QWORD PTR [rip+0x2f15]
+            # TODO: other opcode prefix
             if opcode == 'bnd':
                 opcode = inst.split()[1]
             # stopped at jump
-            # TODO: remove opcode prefix
             if opcode[0] == 'j' or opcode == 'ret':
                 need_jump, jumpto = peda.testjump(opcode, inst)
                 if need_jump:  # JUMP is taken
