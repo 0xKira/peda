@@ -4441,6 +4441,8 @@ class PEDACmd(object):
             end += (count // 2) - cur_line
         if (end - cur_line) < (count // 2):
             start -= count // 2 - (end - cur_line)
+            if start < 0:
+                start = 0
         for number, line in enumerate(self.source_lines[start:end], start + 1):
             if int(number) == cur_line:
                 msg(green("=> {:<4} {}".format(number, line.rstrip("\n")), "light"))
