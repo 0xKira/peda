@@ -624,9 +624,9 @@ class PEDA(object):
             return False
 
     def get_config_filename(self, name):
-        filename = peda.getfile()
+        filename = self.getfile()
         if not filename:
-            filename = peda.getpid()
+            filename = self.getpid()
             if not filename:
                 filename = 'unknown'
 
@@ -2602,8 +2602,6 @@ class PEDA(object):
         headers = self.elfheader()
         if ".plt" not in headers:  # static binary
             return {}
-
-        protection = peda.checksec()
 
         binmap = self.get_vmmap("binary")
         elfbase = binmap[0][0] if binmap else 0
