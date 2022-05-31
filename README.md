@@ -4,6 +4,7 @@ peda
 PEDA - Python Exploit Development Assistance for GDB
 
 ## Enhancements:
+* Way **faster** than original version
 * Dereference memory trace
 * Basic support for ARMv7 and aarch64
   * register support
@@ -16,6 +17,7 @@ PEDA - Python Exploit Development Assistance for GDB
 * heap colorize
 * Syscall information in x86/x64
 * SROP information in x86/x64
+* Several bug fixes
 
 ## Key Features:
 * Enhance the display of gdb: colorize and display disassembly codes, registers, memory information during debugging.
