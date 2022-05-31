@@ -116,7 +116,7 @@ class PEDA(object):
     def parse_and_eval(self, exp):
         """
         Wrapper for gdb.parse_and_eval
-        Only used in parsing asm for now
+        Only used in parsing asm and cmd argv
 
         Args:
             - exp: expression to evaluate (String)
