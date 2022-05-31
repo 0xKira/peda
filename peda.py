@@ -4797,13 +4797,15 @@ class PEDACmd(object):
 
         result = []
 
+        if isinstance(searchfor, tuple):
+            searchfor_msg = '(%#x, %#x)' % searchfor
+        else:
+            searchfor_msg = searchfor
+        msg("Searching for %ses on: %s pointed to: %s, this may take minutes to complete..." %
+            (option, searchfor_msg, belongto))
         if option == "pointer":
-            msg("Searching for pointers on: %s pointed to: %s, this may take minutes to complete..." %
-                (searchfor, belongto))
             result = peda.search_pointer(searchfor, belongto)
         elif option == "address":
-            msg("Searching for addresses on: %s belong to: %s, this may take minutes to complete..." %
-                (searchfor, belongto))
             result = peda.search_address(searchfor, belongto)
 
         text = peda.format_search_result(result, 0)
