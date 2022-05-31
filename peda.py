@@ -36,7 +36,8 @@ except ImportError:
 
 from shellcode import SHELLCODES, Shellcode
 import utils
-from utils import to_int
+from utils import msg, warning_msg, error_msg
+from utils import to_int, to_hex
 from utils import u32, u64, p32, p64
 from utils import *
 import config
@@ -154,27 +155,18 @@ class PEDA(object):
             str_arg = str_arg.encode('ascii', 'ignore')
         except:
             pass
-        args = list(map(lambda x: decode_string_escape(x), shlex.split(str_arg.decode())))
+        args = list(map(lambda x: utils.decode_string_escape(x), shlex.split(str_arg.decode())))
         # need more processing here
-        for idx, a in enumerate(args):
-            a = a.strip(",")
-            if a.startswith("$"):  # try to get register/variable value
-                v = self.parse_and_eval(a)
+        for idx, arg in enumerate(args):
+            arg = arg.strip(",")
+            if arg.startswith("+"):  # relative value to prev arg
+                adder = self.parse_and_eval(arg[1:])
+                if adder is not None:
+                    args[idx] = to_hex(to_int(args[idx - 1]) + adder)
+            elif '$' in arg or utils.is_math_exp(arg):
+                v = self.parse_and_eval(arg)
                 if v is not None:
                     args[idx] = str(v)
-            elif a.startswith("+"):  # relative value to prev arg
-                adder = self.parse_and_eval(a[1:])
-                if adder is not None:
-                    args[idx] = "%s" % to_hex(to_int(args[idx - 1]) + adder)
-            elif utils.is_math_exp(a):
-                try:
-                    v = eval("%s" % a)  # wtf?!
-                    # XXX hack to avoid builtin functions/types
-                    if not isinstance(v, six.string_types + six.integer_types):
-                        continue
-                    args[idx] = "%s" % (to_hex(v) if to_int(v) is not None else v)
-                except:
-                    pass
         if config.Option.get("verbose") == "on":
             msg(args)
         return args
@@ -3070,7 +3062,7 @@ class PEDA(object):
             if len(search) % 2 != 0:
                 search = "0" + search
             search = codecs.decode(search, 'hex')[::-1]
-        search = to_binary_string(decode_string_escape(search))
+        search = to_binary_string(utils.decode_string_escape(search))
         while search:
             l = len(search)
             i = substr(search, mem)
