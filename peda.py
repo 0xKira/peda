@@ -6132,5 +6132,5 @@ peda.execute("set backtrace past-main on")
 peda.execute("set step-mode on")
 peda.execute("set print pretty on")
 peda.execute("set pagination off")
-peda.execute("handle SIGALRM print nopass")  # ignore SIGALRM
-peda.execute("handle SIGSEGV stop print nopass")  # catch SIGSEGV
+peda.execute("handle SIGALRM nostop print nopass")  # ignore SIGALRM
+peda.execute("handle SIGSEGV stop   print nopass")  # catch SIGSEGV
