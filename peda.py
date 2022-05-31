@@ -506,25 +506,6 @@ class PEDA(object):
 
         return None
 
-    def set_breakpoint(self, location, temp=0, hard=0):
-        """
-        Wrapper for GDB break command
-            - location: target function or address (String ot Int)
-
-        Returns:
-            - True if can set breakpoint
-        """
-        cmd = "break"
-        if hard:
-            cmd = "h" + cmd
-        if temp:
-            cmd = "t" + cmd
-
-        if to_int(location) is not None:
-            return peda.execute("%s *%#x" % (cmd, to_int(location)))
-        else:
-            return peda.execute("%s %s" % (cmd, location))
-
     def get_breakpoint(self, num):
         """
         Get info of a specific breakpoint
