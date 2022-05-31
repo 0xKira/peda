@@ -36,6 +36,8 @@ except ImportError:
 
 from shellcode import SHELLCODES, Shellcode
 import utils
+from utils import to_int
+from utils import u32, u64, p32, p64
 from utils import *
 import config
 from nasm import Nasm
@@ -69,6 +71,10 @@ REGISTERS = {
     "elf64-littleaarch64":
     list(map(lambda x: "x%i" % x, range(31))) + ["sp", "pc"] + list(map(lambda x: "w%i" % x, range(31)))
 }
+
+# pwndbg/commands/__init__.py
+_mask = 0xffffffffFFFFFFFF
+_mask_val_type = gdb.Value(_mask).type
 
 
 ###########################################################################
@@ -110,6 +116,7 @@ class PEDA(object):
     def parse_and_eval(self, exp):
         """
         Wrapper for gdb.parse_and_eval
+        Only used in parsing asm for now
 
         Args:
             - exp: expression to evaluate (String)
@@ -117,7 +124,7 @@ class PEDA(object):
         Returns:
             - value of expression (Int)
         """
-        (arch, _) = peda.getarch()
+        (arch, _) = self.getarch()
         if "aarch64" in arch:
             regs = REGISTERS["elf64-littleaarch64"]
         elif "arm" in arch:
@@ -129,7 +136,7 @@ class PEDA(object):
                 exp = exp.replace(r, "$%s" % r)
 
         try:
-            return int(gdb.parse_and_eval(exp).cast(gdb.lookup_type('unsigned long')))
+            return int(gdb.parse_and_eval(exp).cast(_mask_val_type)) # no harm to cast to the longest type
         except gdb.error:
             return None
 
@@ -1420,49 +1427,54 @@ class PEDA(object):
         Evaluate target address of an instruction, used for jumpto decision
 
         Args:
+            - opcode: opcode of the ASM instruction (String)
             - inst: ASM instruction text (String)
 
         Returns:
             - target address (Int)
         """
-        target = None
-
-        # this regex includes x86_64 RIP relateive address reference
+        # good for rop dev
         if "ret" in opcode:
             (arch, _) = self.getarch()
             if "aarch64" in arch:
-                target = self.parse_and_eval("$x30")
+                return self.getreg("x30")
             else:
-                target = self.parse_and_eval("{unsigned long}$sp")
-        else:
-            # e.g QWORD PTR ds:0xdeadbeef and DWORD PTR [ebx+0xc]
-            # TODO: improve this regex
-            p = re.compile("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))")
-            m = p.search(inst)
-            if m:
-                prefix = m.group(1)
-                if '[' in m.group(2):
-                    dest = m.group(3)
-                    if "rip" in dest:
-                        pc = self.getreg("pc")
-                        ins_size = self.next_inst(pc)[0][0] - pc
-                        dest += "+%d" % ins_size
-                else:
-                    dest = m.group(4)
-                if prefix == 'QWORD':
-                    typ = 'unsigned long'
-                elif prefix == 'DWORD':
-                    typ = 'unsigned int'
-                elif prefix == 'WORD':
-                    typ = 'unsigned short'
-                target = self.parse_and_eval("{%s}(%s)" % (typ, dest))
-            else:  # should be a const jump
-                p = re.compile("\w+\s+(0x\S+|\w+)")
-                m = p.search(inst)
-                if m:
-                    target = self.parse_and_eval(m.group(1))
+                sp = self.getreg("sp")
+                return self.read_int(sp)
 
-        return target
+        # this regex includes x86_64 RIP relateive address reference
+        # e.g QWORD PTR ds:0xdeadbeef / DWORD PTR [ebx+0xc]
+        # TODO: improve this regex
+        p = re.compile("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))")
+        m = p.search(inst)
+        if m:
+            prefix = m.group(1)
+            if '[' in m.group(2):
+                dest = m.group(3)
+                if "rip" in dest:
+                    pc = self.getreg("pc")
+                    ins_size = self.next_inst(pc)[0][0] - pc
+                    dest += "+%d" % ins_size
+            else:
+                dest = m.group(4)
+
+            if prefix == 'QWORD':
+                intsize = 8
+            elif prefix == 'DWORD':
+                intsize = 4
+            elif prefix == 'WORD':
+                intsize = 2
+
+            addr = self.parse_and_eval(dest)
+            return self.read_int(addr, intsize)
+
+        # e.g. <puts+65>:	je     0x7ffff7e39570 <puts+336>
+        p = re.compile("\w+\s+(0x\S+)")
+        m = p.search(inst)
+        if m:
+            return to_int(m.group(1))
+
+        return None
 
     def testjump(self, opcode, inst):
         """
