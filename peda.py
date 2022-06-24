@@ -750,7 +750,7 @@ class PEDA(object):
                         try:
                             (addr, code) = line.split(":", 1)
                         except ValueError:
-                            warning_msg('error in {}, line: {}'.format(__func__, line))
+                            warning_msg('asm code error at {:#x}, line: {}'.format(address, line))
                             continue
                         addr = re.search("(0x\S+)", addr).group(1)
                         result += [(to_int(addr), code)]
