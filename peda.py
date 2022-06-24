@@ -108,7 +108,7 @@ class PEDA(object):
         except Exception as e:
             if config.Option.get("debug") == "on":
                 msg('Exception (%s): %s' % (gdb_command, e), "red")
-                traceback.print_exc()
+                traceback.print_stack()
             return False
 
     def parse_and_eval(self, exp):
@@ -4312,7 +4312,7 @@ class PEDACmd(object):
             msg(format_disasm_code(text, pc))
             if "bl" in opcode:
                 self.dumpargs()
-        else:
+        else:  # x86
             # remove instruction prefix
             # <memset@plt+4>:	bnd jmp QWORD PTR [rip+0x2f15]
             # TODO: other opcode prefix
@@ -4354,12 +4354,13 @@ class PEDACmd(object):
                 text += peda.disassemble_around(pc, count)
                 msg(format_disasm_code(text, pc))
 
-                if "syscall" in opcode:
+                # arch is clear, compare string directly
+                if opcode == 'syscall':
                     self.dumpsyscall_x64()
-                elif "call" in opcode:
-                    self.dumpargs()
-                elif "int" in opcode:
+                elif opcode == 'int':
                     self.dumpsyscall_x86()
+                elif opcode == 'call':
+                    self.dumpargs()
 
             if m:
                 exp = m[0][1:-1]
