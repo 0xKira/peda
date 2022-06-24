@@ -784,9 +784,7 @@ def cyclic_pattern_search(buf):
     result = []
     pattern = cyclic_pattern()
 
-    p = re.compile(b"[" + re.escape(to_binary_string(cyclic_pattern_charset())) + b"]{4,}")
-    found = p.finditer(buf)
-    found = list(found)
+    found = re.findall(b"[" + re.escape(to_binary_string(cyclic_pattern_charset())) + b"]{4,}", buf)
     for m in found:
         s = buf[m.start():m.end()]
         i = pattern.find(s)

@@ -313,13 +313,11 @@ class PEDA(object):
         result = None
         out = self.execute('info files', to_string=True)
         if out and '"' in out:
-            p = re.compile(".*exec file:\s*`(.*)'")
-            m = p.search(out)
+            m = re.search(".*exec file:\s*`(.*)'", out)
             if m:
                 result = m.group(1)
             else:  # stripped file, get symbol file
-                p = re.compile("Symbols from \"([^\"]*)")
-                m = p.search(out)
+                m = re.search("Symbols from \"([^\"]*)", out)
                 if m:
                     result = m.group(1)
 
@@ -512,12 +510,10 @@ class PEDA(object):
 
         lines = out.splitlines()[1:]
         # breakpoint regex
-        p = re.compile("^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x\S+)\s*(.*)")
-        m = p.match(lines[0])
+        m = re.match("^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x\S+)\s*(.*)", lines[0])
         if not m:
             # catchpoint/watchpoint regex
-            p = re.compile("^(\d*)\s*(.*point)\s*(keep|del)\s*(y|n)\s*(.*)")
-            m = p.match(lines[0])
+            m = re.match("^(\d*)\s*(.*point)\s*(keep|del)\s*(y|n)\s*(.*)", lines[0])
             if not m:
                 return None
             else:
@@ -886,11 +882,10 @@ class PEDA(object):
             out = self.execute("x/i %#x" % addr, to_string=True)
             if out:
                 line = out
-                p = re.compile("\s*(0x\S+).*?:\s*([^ ]*)\s*(.*)")
+                m = re.search("\s*(0x\S+).*?:\s*([^ ]*)\s*(.*)", line)
             else:
-                p = re.compile("(.*?)\s*<.*?>\s*([^ ]*)\s*(.*)")
+                m = re.search("(.*?)\s*<.*?>\s*([^ ]*)\s*(.*)", line)
 
-            m = p.search(line)
             if m:
                 (address, opcode, opers) = m.groups()
                 if "call" in opcode and search in opers:
@@ -907,8 +902,7 @@ class PEDA(object):
         """
         if not argc:
             argc = 0
-            p = re.compile(".*mov.*\[esp(.*)\],")
-            matches = p.findall(code)
+            matches = re.findall(".*mov.*\[esp(.*)\],", code)
             if matches:
                 l = len(matches)
                 for v in matches:
@@ -937,11 +931,9 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
-        p = re.compile(":\s*([^ ]*)\s*(.*),")
-        matches = p.findall(code)
+        matches = re.findall(":\s*([^ ]*)\s*(.*),", code)
         regs = [r for (_, r) in matches]
-        p = re.compile(("di|si|dx|cx|r8|r9"))
-        m = p.findall(" ".join(regs))
+        m = re.findall(("di|si|dx|cx|r8|r9"), " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "si" in m and "di" not in m:  # dirty fix
@@ -974,12 +966,9 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["r0", "r1", "r2", "r3", "r4", "r5"]
-        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
-        matches = p.findall(code)
+        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
         regs = [r for (_, r) in matches]
-        p = re.compile("(r[0-5])")
-        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
-        m = p.findall(" ".join(regs))
+        m = re.findall("(r[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "r1" in m and "r0" not in m:  # dirty fix
@@ -1012,12 +1001,9 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["x0", "x1", "x2", "x3", "x4", "x5"]
-        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
-        matches = p.findall(code)
+        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
         regs = [r for (_, r) in matches]
-        p = re.compile("(x[0-5]|w[0-5])")
-        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
-        m = p.findall(" ".join(regs))
+        m = re.findall("(x[0-5]|w[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "x1" in m and "x0" not in m:  # dirty fix
@@ -1064,12 +1050,10 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["r3", "r4", "r5", "r6", "r7", "r8"]
-        p = re.compile(":\s*([^\s]*)\s*([^,]*)")
+        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
         matches = p.findall(code)
         regs = [r for (_, r) in matches]
-        p = re.compile("(r[0-5])")
-        #m = [m.group(0) for reg in regs for m in [p.search(reg)] if m]
-        m = p.findall(" ".join(regs))
+        m = re.findall("(r[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "r4" in m and "r3" not in m:  # dirty fix
@@ -1216,15 +1200,12 @@ class PEDA(object):
                 current_instruction = "End of execution"
                 break
 
-            p = re.compile(".*?(0x[^ :]*)")
-            addr = p.search(current_instruction).group(1)
+            addr = re.search(".*?(0x[^ :]*)", current_instruction).group(1)
             addr = to_int(addr)
             if addr is None:
                 break
 
-            #p = re.compile(".*?:\s*([^ ]*)")
-            p = re.compile(".*?:\s*(.*)")
-            code = p.match(current_instruction).group(1)
+            code = re.match(".*?:\s*(.*)", current_instruction).group(1)
             found = 0
             for i in inst.replace(",", " ").split():
                 if re.match(i.strip(), code.strip()):
@@ -1415,8 +1396,7 @@ class PEDA(object):
         # this regex includes x86_64 RIP relateive address reference
         # e.g QWORD PTR ds:0xdeadbeef / DWORD PTR [ebx+0xc]
         # TODO: improve this regex
-        p = re.compile("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))")
-        m = p.search(inst)
+        m = re.search("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))", inst)
         if m:
             prefix = m.group(1)
             if '[' in m.group(2):
@@ -1440,8 +1420,7 @@ class PEDA(object):
 
         # e.g. <puts+65>:	je     0x7ffff7e39570 <puts+336>
         #   or <__GI___overflow+73>:	jmp    rax
-        p = re.compile("\w+\s+(0x\S+|\w+)")
-        m = p.search(inst)
+        m = re.search("\w+\s+(0x\S+|\w+)", inst)
         if m:
             return self.parse_and_eval(m.group(1))
 
@@ -1683,8 +1662,7 @@ class PEDA(object):
             if not out:
                 return 0
             # to be improve
-            p = re.compile(".*\[.*\] (\.[^ ]+) [^0-9]* [0-9a-f]+ ([0-9a-f]+).*")
-            matches = p.findall(out)
+            matches = re.findall(".*\[.*\] (\.[^ ]+) [^0-9]* [0-9a-f]+ ([0-9a-f]+).*", out)
             if not matches:
                 return 0
             for (hname, off) in matches:
@@ -1752,8 +1730,6 @@ class PEDA(object):
 
         def _get_allmaps_osx(pid, remote=False):
             maps = []
-            #_DATA                 00007fff77975000-00007fff77976000 [    4K] rw-/rw- SM=COW  /usr/lib/system/libremovefile.dylib
-            pattern = re.compile("([^\n]*)\s*  ([0-9a-f][^-\s]*)-([^\s]*) \[.*\]\s([^/]*).*  (.*)")
 
             if remote:  # remote target, not yet supported
                 return maps
@@ -1763,7 +1739,8 @@ class PEDA(object):
                 except:
                     error_msg("could not read vmmap of process")
 
-            matches = pattern.findall(out)
+            # _DATA                 00007fff77975000-00007fff77976000 [    4K] rw-/rw- SM=COW  /usr/lib/system/libremovefile.dylib
+            matches = re.findall("([^\n]*)\s*  ([0-9a-f][^-\s]*)-([^\s]*) \[.*\]\s([^/]*).*  (.*)", out)
             if matches:
                 for (name, start, end, perm, mapname) in matches:
                     if name.startswith("Stack"):
@@ -1778,8 +1755,6 @@ class PEDA(object):
         def _get_allmaps_freebsd(pid, remote=False):
             maps = []
             mpath = "/proc/%s/map" % pid
-            # 0x8048000 0x8049000 1 0 0xc36afdd0 r-x 1 0 0x1000 COW NC vnode /path/to/file NCH -1
-            pattern = re.compile("0x([0-9a-f]*) 0x([0-9a-f]*)(?: [^ ]*){3} ([rwx-]*)(?: [^ ]*){6} ([^ ]*)")
 
             if remote:  # remote target, not yet supported
                 return maps
@@ -1789,7 +1764,8 @@ class PEDA(object):
                 except:
                     error_msg("could not open %s; is procfs mounted?" % mpath)
 
-            matches = pattern.findall(out)
+            # 0x8048000 0x8049000 1 0 0xc36afdd0 r-x 1 0 0x1000 COW NC vnode /path/to/file NCH -1
+            matches = re.findall("0x([0-9a-f]*) 0x([0-9a-f]*)(?: [^ ]*){3} ([rwx-]*)(?: [^ ]*){6} ([^ ]*)", out)
             if matches:
                 for (start, end, perm, mapname) in matches:
                     if start[:2] in ["bf", "7f", "ff"] and "rw" in perm:
@@ -1807,8 +1783,6 @@ class PEDA(object):
         def _get_allmaps_linux(pid, remote=False):
             maps = []
             mpath = "/proc/%s/maps" % pid
-            # 00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
-            pattern = re.compile("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)")
 
             if remote:  # remote target
                 # check if is QEMU
@@ -1828,7 +1802,8 @@ class PEDA(object):
             else:  # local target
                 out = open(mpath).read()
 
-            matches = pattern.findall(out)
+            # 00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
+            matches = re.findall("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)", out)
             if matches:
                 for (start, end, perm, mapname) in matches:
                     start = to_int("0x%s" % start)
@@ -2412,8 +2387,7 @@ class PEDA(object):
                     if value >= start and value < end:
                         if type == "code":
                             out = self.get_disasm(value)
-                            p = re.compile(".*?0x\S+?\s(.*)")
-                            m = p.search(out)
+                            m = re.search(".*?0x\S+?\s(.*)", out)
                             result = (to_hex(value), "code", m.group(1))
                         else:  # rodata address
                             result = (to_hex(value), "rodata", examine_data(value))
@@ -2427,8 +2401,7 @@ class PEDA(object):
                 if "(bad)" in out:
                     result = (to_hex(value), "rodata", examine_data(value))
                 else:
-                    p = re.compile(".*?0x\S+?\s(.*)")
-                    m = p.search(out)
+                    m = re.search(".*?0x\S+?\s(.*)", out)
                     result = (to_hex(value), "code", m.group(1))
 
         else:  # readonly data address
@@ -2527,9 +2500,8 @@ class PEDA(object):
             - entry address (Int)
         """
         out = self.execute("info files", to_string=True)
-        p = re.compile("Entry point: ([^\s]*)")
         if out:
-            m = p.search(out)
+            m = re.search("Entry point: ([^\s]*)", out)
             if m:
                 return to_int(m.group(1))
         return None
@@ -2555,8 +2527,7 @@ class PEDA(object):
         if not out:
             return {}
 
-        p = re.compile("\s*(0x[^-]*)->(0x\S+) at (0x[^:]*):\s*([^ ]*)\s*(.*)")
-        matches = p.findall(out)
+        matches = re.findall("\s*(0x[^-]*)->(0x\S+) at (0x[^:]*):\s*([^ ]*)\s*(.*)", out)
 
         for (start, end, offset, hname, attr) in matches:
             start, end, offset = to_int(start), to_int(end), to_int(offset)
@@ -2730,8 +2701,8 @@ class PEDA(object):
         out = utils.execute_external_command("%s -W -S %s" % (config.READELF, filename))
         if not out:
             return {}
-        p = re.compile(".*\[.*\] (\.[^ ]*) [^0-9]* ([^ ]*) [^ ]* ([^ ]*)(.*)")
-        matches = p.findall(out)
+
+        matches = re.findall(".*\[.*\] (\.[^ ]*) [^0-9]* ([^ ]*) [^ ]* ([^ ]*)(.*)", out)
         if not matches:
             return result
 
@@ -2789,8 +2760,7 @@ class PEDA(object):
             if not out:
                 return None
 
-            p = re.compile("[^\n]*\s*(0x\S+) - (0x\S+) is (\.[^ ]*) in (.*)")
-            soheaders = p.findall(out)
+            soheaders = re.findall("[^\n]*\s*(0x\S+) - (0x\S+) is (\.[^ ]*) in (.*)", out)
 
             result = []
             for (start, end, hname, libname) in soheaders:
@@ -2990,9 +2960,8 @@ class PEDA(object):
         if regname is None:
             regname = ""
         regname = regname.lower()
-        pattern = re.compile(b'|'.join(JMPCALL).replace(b' ', b'\ '))
         mem = self.dumpmem(start, end)
-        found = pattern.finditer(mem)
+        found = re.finditer(b'|'.join(JMPCALL).replace(b' ', b'\ '), mem)
         (arch, bits) = self.getarch()
         for m in list(found):
             inst = ""
@@ -5060,11 +5029,10 @@ class PEDACmd(object):
 
         text = ""
         regex_pattern = "[%s]{%d,}" % (re.escape(string.printable), minlen)
-        p = re.compile(regex_pattern.encode('utf-8'))
         for (start, end, _, _) in maps:
             mem = peda.dumpmem(start, end)
             if not mem: continue
-            found = p.finditer(mem)
+            found = re.finditer(regex_pattern.encode('utf-8'), mem)
             if not found: continue
 
             for m in found:
