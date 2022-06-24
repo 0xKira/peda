@@ -1439,10 +1439,11 @@ class PEDA(object):
             return self.read_int(addr, intsize)
 
         # e.g. <puts+65>:	je     0x7ffff7e39570 <puts+336>
-        p = re.compile("\w+\s+(0x\S+)")
+        #   or <__GI___overflow+73>:	jmp    rax
+        p = re.compile("\w+\s+(0x\S+|\w+)")
         m = p.search(inst)
         if m:
-            return to_int(m.group(1))
+            return self.parse_and_eval(m.group(1))
 
         return None
 
