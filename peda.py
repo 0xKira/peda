@@ -4286,7 +4286,8 @@ class PEDACmd(object):
             # <memset@plt+4>:	bnd jmp QWORD PTR [rip+0x2f15]
             # TODO: other opcode prefix
             if opcode == 'bnd':
-                opcode = inst.split()[1]
+                inst = inst[len(opcode) + 1:]
+                opcode = inst.split()[0]
             # stopped at jump
             if opcode[0] == 'j' or opcode == 'ret':
                 need_jump, jumpto = peda.testjump(opcode, inst)
