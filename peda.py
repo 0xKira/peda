@@ -4989,7 +4989,7 @@ class PEDACmd(object):
                 text += "Virtual memory mapping:\n"
                 text += green("Start : %s\n" % to_address(start))
                 text += green("End   : %s\n" % to_address(end))
-                binmap = peda.get_vmmap(name)
+                binmap = peda.get_vmmap(name) if name != 'mapped' else None
                 if binmap:
                     text += yellow("Offset: %#x (%#x in file)\n" % ((address - start), address - binmap[0][0]))
                 else:
