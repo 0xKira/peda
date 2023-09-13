@@ -3391,7 +3391,7 @@ class PEDACmd(object):
             self._missing_argument()
 
         if count is None:
-            count = 16
+            count = 0x40
 
         if not to_int(count) and count.startswith("/"):
             count = to_int(count[1:])
