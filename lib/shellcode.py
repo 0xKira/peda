@@ -14,26 +14,14 @@ import random
 import socket
 import struct
 import traceback
-import six.moves.http_client
-from six.moves import range
-import sys
 
 import config
-from utils import msg, error_msg
-
-if sys.version_info.major == 3:
-    from urllib.request import urlopen
-    from urllib.parse import urlencode
-    pyversion = 3
-else:
-    from urllib import urlopen
-    from urllib import urlencode
-    pyversion = 2
+from utils import msg
 
 
 def _make_values_bytes(dict_):
     """Make shellcode in dictionaries bytes"""
-    return {k: six.b(v) for k, v in dict_.items()}
+    return {k: bytes(v, 'latin1') for k, v in dict_.items()}
 
 
 shellcode_x86_linux = _make_values_bytes({
@@ -305,75 +293,4 @@ class Shellcode():
             if config.Option.get("debug") == "on":
                 msg("Exception: %s" % e)
                 traceback.print_exc()
-            return None
-
-    """ search() and display() use the shell-storm API """
-
-    def search(self, keyword):
-        if keyword is None:
-            return None
-        try:
-            msg("Connecting to shell-storm.org...")
-            s = six.moves.http_client.HTTPConnection("shell-storm.org")
-
-            s.request("GET", "/api/?s=" + str(keyword))
-            res = s.getresponse()
-            read_result = res.read().decode('utf-8')
-            data_l = [x for x in read_result.split('\n') if x]  # remove empty results
-        except Exception as e:
-            if config.Option.get("debug") == "on":
-                msg("Exception: %s" % e)
-                traceback.print_exc()
-            error_msg("Cannot connect to shell-storm.org")
-            return None
-
-        data_dl = []
-        for data in data_l:
-            try:
-                desc = data.split("::::")
-                dico = {'ScAuthor': desc[0], 'ScArch': desc[1], 'ScTitle': desc[2], 'ScId': desc[3], 'ScUrl': desc[4]}
-                data_dl.append(dico)
-            except Exception as e:
-                if config.Option.get("debug") == "on":
-                    msg("Exception: %s" % e)
-                    traceback.print_exc()
-
-        return data_dl
-
-    def display(self, shellcodeId):
-        if shellcodeId is None:
-            return None
-
-        try:
-            msg("Connecting to shell-storm.org...")
-            s = six.moves.http_client.HTTPConnection("shell-storm.org")
-        except:
-            error_msg("Cannot connect to shell-storm.org")
-            return None
-
-        try:
-            s.request("GET", "/shellcode/files/shellcode-" + str(shellcodeId) + ".php")
-            res = s.getresponse()
-            data = res.read().decode('utf-8').split("<pre>")[1].split("<body>")[0]
-        except:
-            error_msg("Failed to download shellcode from shell-storm.org")
-            return None
-
-        data = data.replace("&quot;", "\"")
-        data = data.replace("&amp;", "&")
-        data = data.replace("&lt;", "<")
-        data = data.replace("&gt;", ">")
-        return data
-
-    #OWASP ZSC API Z3r0D4y.Com
-    def zsc(self, os, job, encode):
-        try:
-            msg('Connection to OWASP ZSC API api.z3r0d4y.com')
-            params = urlencode({'api_name': 'zsc', 'os': os, 'job': job, 'encode': encode})
-            shellcode = urlopen("http://api.z3r0d4y.com/index.py?%s\n" % (str(params))).read()
-            if pyversion == 3:
-                shellcode = str(shellcode, encoding='ascii')
-            return '\n"' + shellcode.replace('\n', '') + '"\n'
-        except:
-            error_msg("Error while connecting to api.z3r0d4y.com ...")
             return None

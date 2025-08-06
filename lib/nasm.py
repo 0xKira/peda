@@ -87,7 +87,7 @@ class Nasm(object):
             shellcode = []
 
             for line in asmcode.splitlines():
-                m = re.match("([0-9A-F]{8})\s*([^\s]*)\s*(.*)", line)
+                m = re.match(r"([0-9A-F]{8})\s*([^\s]*)\s*(.*)", line)
                 if m:
                     (addr, bytes, code) = m.groups()
                     sc = '"%s"' % to_hexstr(codecs.decode(bytes, 'hex'))

@@ -26,14 +26,6 @@ if os.path.islink(PEDAFILE):
     PEDAFILE = os.readlink(PEDAFILE)
 sys.path.insert(0, os.path.dirname(PEDAFILE) + "/lib/")
 
-# Use six library to provide Python 2/3 compatibility
-import six
-from six.moves import range, input
-try:
-    import six.moves.cPickle as pickle
-except ImportError:
-    import pickle
-
 from shellcode import SHELLCODES, Shellcode
 import utils
 from utils import normalize_argv, memoized, format_reference_chain, format_disasm_code
@@ -44,10 +36,8 @@ from utils import green, red, yellow, blue, purple, cyan
 import config
 from nasm import Nasm
 
-if sys.version_info.major == 3:
-    pyversion = 3
-else:
-    pyversion = 2
+if sys.version_info.major != 3:
+    raise Exception("Python2 not suppoted any more!")
 
 
 REGISTERS = {
@@ -313,11 +303,11 @@ class PEDA(object):
         result = None
         out = self.execute('info files', to_string=True)
         if out and '"' in out:
-            m = re.search(".*exec file:\s*`(.*)'", out)
+            m = re.search(r".*exec file:\s*`(.*)'", out)
             if m:
                 result = m.group(1)
             else:  # stripped file, get symbol file
-                m = re.search("Symbols from \"([^\"]*)", out)
+                m = re.search(r"Symbols from \"([^\"]*)", out)
                 if m:
                     result = m.group(1)
 
@@ -510,10 +500,10 @@ class PEDA(object):
 
         lines = out.splitlines()[1:]
         # breakpoint regex
-        m = re.match("^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x\S+)\s*(.*)", lines[0])
+        m = re.match(r"^(\d*)\s*(.*breakpoint)\s*(keep|del)\s*(y|n)\s*(0x\S+)\s*(.*)", lines[0])
         if not m:
             # catchpoint/watchpoint regex
-            m = re.match("^(\d*)\s*(.*point)\s*(keep|del)\s*(y|n)\s*(.*)", lines[0])
+            m = re.match(r"^(\d*)\s*(.*point)\s*(keep|del)\s*(y|n)\s*(.*)", lines[0])
             if not m:
                 return None
             else:
@@ -525,7 +515,7 @@ class PEDA(object):
         disp = True if disp == "keep" else False
         enb = True if enb == "y" else False
         addr = to_int(addr)
-        m = re.match("in.*at(.*:\d*)", what)
+        m = re.match(r"in.*at(.*:\d*)", what)
         if m:
             what = m.group(1)
         else:
@@ -554,7 +544,7 @@ class PEDA(object):
 
         bplist = []
         for line in out.splitlines():
-            m = re.match("^(\d*).*", line)
+            m = re.match(r"^(\d*).*", line)
             if m and to_int(m.group(1)):
                 bplist += [to_int(m.group(1))]
 
@@ -586,7 +576,7 @@ class PEDA(object):
         try:
             fd = open(filename, "w")
             for (num, type, disp, enb, addr, what, commands) in bplist:
-                m = re.match("(.*)point", type)
+                m = re.match(r"(.*)point", type)
                 if m:
                     cmd = m.group(1).split()[-1]
                 else:
@@ -752,7 +742,7 @@ class PEDA(object):
                         except ValueError:
                             warning_msg('asm code error at {:#x}, line: {}'.format(address, line))
                             continue
-                        addr = re.search("(0x\S+)", addr).group(1)
+                        addr = re.search(r"(0x\S+)", addr).group(1)
                         result += [(to_int(addr), code)]
                     return result
         return None
@@ -773,7 +763,7 @@ class PEDA(object):
             return None
 
         (addr, code) = out.split(":", 1)
-        addr = re.search("(0x\S+)", addr).group(1)
+        addr = re.search(r"(0x\S+)", addr).group(1)
         addr = to_int(addr)
         code = code.strip()
 
@@ -801,7 +791,7 @@ class PEDA(object):
             if ":" not in lines[i]:
                 i += 1
             (addr, code) = lines[i].split(":", 1)
-            addr = re.search("(0x\S+)", addr).group(1)
+            addr = re.search(r"(0x\S+)", addr).group(1)
             result += [(to_int(addr), code)]
         return result
 
@@ -882,9 +872,9 @@ class PEDA(object):
             out = self.execute("x/i %#x" % addr, to_string=True)
             if out:
                 line = out
-                m = re.search("\s*(0x\S+).*?:\s*([^ ]*)\s*(.*)", line)
+                m = re.search(r"\s*(0x\S+).*?:\s*([^ ]*)\s*(.*)", line)
             else:
-                m = re.search("(.*?)\s*<.*?>\s*([^ ]*)\s*(.*)", line)
+                m = re.search(r"(.*?)\s*<.*?>\s*([^ ]*)\s*(.*)", line)
 
             if m:
                 (address, opcode, opers) = m.groups()
@@ -902,7 +892,7 @@ class PEDA(object):
         """
         if not argc:
             argc = 0
-            matches = re.findall(".*mov.*\[esp(.*)\],", code)
+            matches = re.findall(r".*mov.*\[esp(.*)\],", code)
             if matches:
                 l = len(matches)
                 for v in matches:
@@ -931,7 +921,7 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"]
-        matches = re.findall(":\s*([^ ]*)\s*(.*),", code)
+        matches = re.findall(r":\s*([^ ]*)\s*(.*),", code)
         regs = [r for (_, r) in matches]
         m = re.findall(("di|si|dx|cx|r8|r9"), " ".join(regs))
         m = list(set(m))  # uniqify
@@ -966,9 +956,9 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["r0", "r1", "r2", "r3", "r4", "r5"]
-        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
+        matches = re.findall(r":\s*([^\s]*)\s*([^,]*)", code)
         regs = [r for (_, r) in matches]
-        m = re.findall("(r[0-5])", " ".join(regs))
+        m = re.findall(r"(r[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "r1" in m and "r0" not in m:  # dirty fix
@@ -1001,9 +991,9 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["x0", "x1", "x2", "x3", "x4", "x5"]
-        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
+        matches = re.findall(r":\s*([^\s]*)\s*([^,]*)", code)
         regs = [r for (_, r) in matches]
-        m = re.findall("(x[0-5]|w[0-5])", " ".join(regs))
+        m = re.findall(r"(x[0-5]|w[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "x1" in m and "x0" not in m:  # dirty fix
@@ -1050,10 +1040,10 @@ class PEDA(object):
         """
         # just retrieve max 6 args
         arg_order = ["r3", "r4", "r5", "r6", "r7", "r8"]
-        matches = re.findall(":\s*([^\s]*)\s*([^,]*)", code)
+        matches = re.findall(r":\s*([^\s]*)\s*([^,]*)", code)
         matches = p.findall(code)
         regs = [r for (_, r) in matches]
-        m = re.findall("(r[0-5])", " ".join(regs))
+        m = re.findall(r"(r[0-5])", " ".join(regs))
         m = list(set(m))  # uniqify
         argc = 0
         if "r4" in m and "r3" not in m:  # dirty fix
@@ -1200,12 +1190,12 @@ class PEDA(object):
                 current_instruction = "End of execution"
                 break
 
-            addr = re.search(".*?(0x[^ :]*)", current_instruction).group(1)
+            addr = re.search(r".*?(0x[^ :]*)", current_instruction).group(1)
             addr = to_int(addr)
             if addr is None:
                 break
 
-            code = re.match(".*?:\s*(.*)", current_instruction).group(1)
+            code = re.match(r".*?:\s*(.*)", current_instruction).group(1)
             found = 0
             for i in inst.replace(",", " ").split():
                 if re.match(i.strip(), code.strip()):
@@ -1396,7 +1386,7 @@ class PEDA(object):
         # this regex includes x86_64 RIP relateive address reference
         # e.g QWORD PTR ds:0xdeadbeef / DWORD PTR [ebx+0xc]
         # TODO: improve this regex
-        m = re.search("\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))", inst)
+        m = re.search(r"\w+\s+(\w+) PTR (\[(\S+)\]|\w+:(0x\S+))", inst)
         if m:
             prefix = m.group(1)
             if '[' in m.group(2):
@@ -1420,7 +1410,7 @@ class PEDA(object):
 
         # e.g. <puts+65>:	je     0x7ffff7e39570 <puts+336>
         #   or <__GI___overflow+73>:	jmp    rax
-        m = re.search("\w+\s+(0x\S+|\w+)", inst)
+        m = re.search(r"\w+\s+(0x\S+|\w+)", inst)
         if m:
             return self.parse_and_eval(m.group(1))
 
@@ -1662,7 +1652,7 @@ class PEDA(object):
             if not out:
                 return 0
             # to be improve
-            matches = re.findall(".*\[.*\] (\.[^ ]+) [^0-9]* [0-9a-f]+ ([0-9a-f]+).*", out)
+            matches = re.findall(r".*\[.*\] (\.[^ ]+) [^0-9]* [0-9a-f]+ ([0-9a-f]+).*", out)
             if not matches:
                 return 0
             for (hname, off) in matches:
@@ -1740,7 +1730,7 @@ class PEDA(object):
                     error_msg("could not read vmmap of process")
 
             # _DATA                 00007fff77975000-00007fff77976000 [    4K] rw-/rw- SM=COW  /usr/lib/system/libremovefile.dylib
-            matches = re.findall("([^\n]*)\s*  ([0-9a-f][^-\s]*)-([^\s]*) \[.*\]\s([^/]*).*  (.*)", out)
+            matches = re.findall(r"([^\n]*)\s*  ([0-9a-f][^-\s]*)-([^\s]*) \[.*\]\s([^/]*).*  (.*)", out)
             if matches:
                 for (name, start, end, perm, mapname) in matches:
                     if name.startswith("Stack"):
@@ -1765,7 +1755,7 @@ class PEDA(object):
                     error_msg("could not open %s; is procfs mounted?" % mpath)
 
             # 0x8048000 0x8049000 1 0 0xc36afdd0 r-x 1 0 0x1000 COW NC vnode /path/to/file NCH -1
-            matches = re.findall("0x([0-9a-f]*) 0x([0-9a-f]*)(?: [^ ]*){3} ([rwx-]*)(?: [^ ]*){6} ([^ ]*)", out)
+            matches = re.findall(r"0x([0-9a-f]*) 0x([0-9a-f]*)(?: [^ ]*){3} ([rwx-]*)(?: [^ ]*){6} ([^ ]*)", out)
             if matches:
                 for (start, end, perm, mapname) in matches:
                     if start[:2] in ["bf", "7f", "ff"] and "rw" in perm:
@@ -1803,7 +1793,7 @@ class PEDA(object):
                 out = open(mpath).read()
 
             # 00400000-0040b000 r-xp 00000000 08:02 538840  /path/to/file
-            matches = re.findall("([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)", out)
+            matches = re.findall(r"([0-9a-f]*)-([0-9a-f]*) ([rwxps-]*)(?: [^ ]*){3} *(.*)", out)
             if matches:
                 for (start, end, perm, mapname) in matches:
                     start = to_int("0x%s" % start)
@@ -2184,7 +2174,7 @@ class PEDA(object):
         if not mem:
             return result
 
-        if isinstance(search, six.string_types) and search.startswith("0x"):
+        if isinstance(search, str) and search.startswith("0x"):
             # hex number
             search = search[2:]
             if len(search) % 2 != 0:
@@ -2387,7 +2377,7 @@ class PEDA(object):
                     if value >= start and value < end:
                         if type == "code":
                             out = self.get_disasm(value)
-                            m = re.search(".*?0x\S+?\s(.*)", out)
+                            m = re.search(r".*?0x\S+?\s(.*)", out)
                             result = (to_hex(value), "code", m.group(1))
                         else:  # rodata address
                             result = (to_hex(value), "rodata", examine_data(value))
@@ -2401,7 +2391,7 @@ class PEDA(object):
                 if "(bad)" in out:
                     result = (to_hex(value), "rodata", examine_data(value))
                 else:
-                    m = re.search(".*?0x\S+?\s(.*)", out)
+                    m = re.search(r".*?0x\S+?\s(.*)", out)
                     result = (to_hex(value), "code", m.group(1))
 
         else:  # readonly data address
@@ -2501,7 +2491,7 @@ class PEDA(object):
         """
         out = self.execute("info files", to_string=True)
         if out:
-            m = re.search("Entry point: ([^\s]*)", out)
+            m = re.search(r"Entry point: ([^\s]*)", out)
             if m:
                 return to_int(m.group(1))
         return None
@@ -2527,7 +2517,7 @@ class PEDA(object):
         if not out:
             return {}
 
-        matches = re.findall("\s*(0x[^-]*)->(0x\S+) at (0x[^:]*):\s*([^ ]*)\s*(.*)", out)
+        matches = re.findall(r"\s*(0x[^-]*)->(0x\S+) at (0x[^:]*):\s*([^ ]*)\s*(.*)", out)
 
         for (start, end, offset, hname, attr) in matches:
             start, end, offset = to_int(start), to_int(end), to_int(offset)
@@ -2600,7 +2590,7 @@ class PEDA(object):
             symname += "@plt"
             out = self.execute("info functions %s" % symname, to_string=True)
             if not out: continue
-            m = re.findall(".*(0x\S+)\s*%s" % re.escape(symname), out)
+            m = re.findall(r".*(0x\S+)\s*%s" % re.escape(symname), out)
             for addr in m:
                 addr = to_int(addr)
                 if self.is_address(addr, binmap):
@@ -2677,7 +2667,7 @@ class PEDA(object):
         if refs:
             inst = self.prev_inst(refs[0][0])
             if inst:
-                addr = re.search(".*(0x.*)", inst[0][1])
+                addr = re.search(r".*(0x.*)", inst[0][1])
                 if addr:
                     return to_int(addr.group(1))
         return None
@@ -2702,7 +2692,7 @@ class PEDA(object):
         if not out:
             return {}
 
-        matches = re.findall(".*\[.*\] (\.[^ ]*) [^0-9]* ([^ ]*) [^ ]* ([^ ]*)(.*)", out)
+        matches = re.findall(r".*\[.*\] (\.[^ ]*) [^0-9]* ([^ ]*) [^ ]* ([^ ]*)(.*)", out)
         if not matches:
             return result
 
@@ -2760,7 +2750,7 @@ class PEDA(object):
             if not out:
                 return None
 
-            soheaders = re.findall("[^\n]*\s*(0x\S+) - (0x\S+) is (\.[^ ]*) in (.*)", out)
+            soheaders = re.findall(r"[^\n]*\s*(0x\S+) - (0x\S+) is (\.[^ ]*) in (.*)", out)
 
             result = []
             for (start, end, hname, libname) in soheaders:
@@ -2929,7 +2919,7 @@ class PEDA(object):
             asmcode = self.execute("disassemble %#x, %#x" % (a, a + (len(v) // 2)), to_string=True)
             if asmcode:
                 asmcode = "\n".join(asmcode.splitlines()[1:-1])
-                matches = re.findall(".*:([^\n]*)", asmcode)
+                matches = re.findall(r".*:([^\n]*)", asmcode)
                 result += [(a, (v, ";".join(matches).strip()))]
 
         return result
@@ -2961,7 +2951,7 @@ class PEDA(object):
             regname = ""
         regname = regname.lower()
         mem = self.dumpmem(start, end)
-        found = re.finditer(b'|'.join(JMPCALL).replace(b' ', b'\ '), mem)
+        found = re.finditer(b'|'.join(JMPCALL).replace(b' ', rb'\ '), mem)
         (arch, bits) = self.getarch()
         for m in list(found):
             inst = ""
@@ -3525,7 +3515,7 @@ class PEDACmd(object):
         fdlist = os.listdir("/proc/%d/fd" % pid)
         for fd in fdlist:
             rpath = os.readlink("/proc/%d/fd/%s" % (pid, fd))
-            sock = re.search("socket:\[(.*)\]", rpath)
+            sock = re.search(r"socket:\[(.*)\]", rpath)
             if sock:
                 spath = utils.execute_external_command("netstat -aen | grep %s" % sock.group(1))
                 if spath:
@@ -3535,11 +3525,11 @@ class PEDACmd(object):
         # uid/gid, pid, ppid
         info["pid"] = pid
         status = open("/proc/%d/status" % pid).read()
-        ppid = re.search("PPid:\s*([^\s]*)", status).group(1)
+        ppid = re.search(r"PPid:\s*([^\s]*)", status).group(1)
         info["ppid"] = to_int(ppid) if ppid else -1
-        uid = re.search("Uid:\s*([^\n]*)", status).group(1)
+        uid = re.search(r"Uid:\s*([^\n]*)", status).group(1)
         info["uid"] = [to_int(id) for id in uid.split()]
-        gid = re.search("Gid:\s*([^\n]*)", status).group(1)
+        gid = re.search(r"Gid:\s*([^\n]*)", status).group(1)
         info["gid"] = [to_int(id) for id in gid.split()]
 
         for opt in options:
@@ -5646,8 +5636,6 @@ class PEDACmd(object):
 
         """ Multiple variable name for different modes """
         (mode, platform, sctype, port, host) = normalize_argv(arg, 5)
-        (mode, keyword) = normalize_argv(arg, 2)
-        (mode, shellcodeId) = normalize_argv(arg, 2)
 
         if mode == "generate":
             arch = "x86"
@@ -5680,97 +5668,10 @@ class PEDACmd(object):
                 i += 1
             text += ")"
             msg(text)
-
-        # search shellcodes on shell-storm.org
-        elif mode == "search":
-            if keyword is None:
-                self._missing_argument()
-
-            res_dl = Shellcode().search(keyword)
-            if not res_dl:
-                msg("Shellcode not found or cannot retrieve the result")
-                return
-
-            msg("Found %d shellcodes" % len(res_dl))
-            msg("%s\t%s" % (blue("ScId"), blue("Title")))
-            text = ""
-            for data_d in res_dl:
-                text += "[%s]\t%s - %s\n" % (yellow(data_d['ScId']), data_d['ScArch'], data_d['ScTitle'])
-            pager(text)
-
-        # download shellcodes from shell-storm.org
-        elif mode == "display":
-            if to_int(shellcodeId) is None:
-                self._missing_argument()
-
-            res = Shellcode().display(shellcodeId)
-            if not res:
-                msg("Shellcode id not found or cannot retrieve the result")
-                return
-
-            msg(res)
-        #OWASP ZSC API Z3r0D4y.Com
-        elif mode == "zsc":
-            'os lists'
-            oslist = [
-                'linux_x86', 'linux_x64', 'linux_arm', 'linux_mips', 'freebsd_x86', 'freebsd_x64', 'windows_x86',
-                'windows_x64', 'osx', 'solaris_x64', 'solaris_x86'
-            ]
-            'functions'
-            joblist = [
-                'exec(\'/path/file\')', 'chmod(\'/path/file\',\'permission number\')',
-                'write(\'/path/file\',\'text to write\')', 'file_create(\'/path/file\',\'text to write\')',
-                'dir_create(\'/path/folder\')', 'download(\'url\',\'filename\')',
-                'download_execute(\'url\',\'filename\',\'command to execute\')', 'system(\'command to execute\')'
-            ]
-            'encode types'
-            encodelist = [
-                'none', 'xor_random', 'xor_yourvalue', 'add_random', 'add_yourvalue', 'sub_random', 'sub_yourvalue',
-                'inc', 'inc_timeyouwant', 'dec', 'dec_timeyouwant', 'mix_all'
-            ]
-            try:
-                while True:
-                    for os in oslist:
-                        msg('%s %s' % (yellow('[+]'), green(os)))
-                    if pyversion == 2:
-                        os = input('%s' % blue('os:'))
-                    elif pyversion == 3:
-                        os = input('%s' % blue('os:'))
-                    if os in oslist:  #check if os exist
-                        break
-                    else:
-                        warning_msg("Wrong input! Try Again.")
-                while True:
-                    for job in joblist:
-                        msg('%s %s' % (yellow('[+]'), green(job)))
-                    if pyversion == 2:
-                        job = raw_input('%s' % blue('job:'))
-                    elif pyversion == 3:
-                        job = input('%s' % blue('job:'))
-                    if job != '':
-                        break
-                    else:
-                        warning_msg("Please enter a function.")
-                while True:
-                    for encode in encodelist:
-                        msg('%s %s' % (yellow('[+]'), green(encode)))
-                    if pyversion == 2:
-                        encode = raw_input('%s' % blue('encode:'))
-                    elif pyversion == 3:
-                        encode = input('%s' % blue('encode:'))
-                    if encode != '':
-                        break
-                    else:
-                        warning_msg("Please enter a encode type.")
-            except (KeyboardInterrupt, SystemExit):
-                warning_msg("Aborted by user")
-            result = Shellcode().zsc(os, job, encode)
-            if result is not None:
-                msg(result)
         else:
             self._missing_argument()
 
-    shellcode.options = ["generate", "search", "display", "zsc"]
+    shellcode.options = ["generate"]
 
     def gennop(self, *arg):
         """
